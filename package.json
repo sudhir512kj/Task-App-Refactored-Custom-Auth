@@ -1,0 +1,43 @@
+{
+  "name": "task-app-refactored-custom-auth",
+  "version": "1.0.0",
+  "description": "A Node.js backend utilizing clean architectural patterns.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Node.js",
+    "Tasks",
+    "MongoDB",
+    "Services",
+    "Repositories",
+    "APIs",
+    "JSON",
+    "JavaScript"
+  ],
+  "author": "Jamie Corkhill",
+  "license": "ISC",
+  "dependencies": {
+    "awilix": "^4.2.2",
+    "awilix-express": "^2.1.1",
+    "aws-sdk": "^2.501.0",
+    "env-cmd": "^8.0.2",
+    "express": "^4.17.1",
+    "express-async-errors": "^3.1.1",
+    "mongoose": "^5.6.7",
+    "multer": "^1.4.2",
+    "sharp": "^0.22.1"
+  },
+  "devDependencies": {
+    "babel-eslint": "^10.0.2",
+    "eslint": "^6.1.0",
+    "eslint-config-airbnb": "^17.1.1",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-react": "^7.14.3",
+    "jest": "^24.8.0",
+    "mock-aws-s3": "^3.0.0",
+    "supertest": "^4.0.2"
+  }
+}
