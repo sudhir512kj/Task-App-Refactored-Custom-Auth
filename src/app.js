@@ -14,13 +14,13 @@ const mongoSanitize = require('express-mongo-sanitize');
 const { scopePerRequest } = require('awilix-express');
 
 // Middleware
-// const handleErrors = require('./api/middleware/handle-errors');
+const handleErrors = require('./api/middleware/handle-errors');
 
 // Delegate errors in async endpoints to be handled by middleware.
 require('express-async-errors');
 
 // Routes - User
-// const userRoutes = require('./api/routes/user');
+const userRoutes = require('./api/routes/user');
 
 // Application Factory to ease Dependency Injection in tests.
 module.exports = container => {
@@ -36,10 +36,10 @@ module.exports = container => {
     app.use(scopePerRequest(container));
 
     // Routes - Users
-    // app.use('/api/v1/users', userRoutes);
+    app.use('/api/v1/users', userRoutes);
 
     // This needs to come last to handle errors.
-    // app.use(handleErrors);
+    app.use(handleErrors);
 
     return app;
 };

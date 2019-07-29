@@ -9,6 +9,7 @@
 
 const mongoose = require('mongoose');
 const validator = require('validator');
+const awilix = require('awilix');
 
 // Define the schema.
 const userSchema = new mongoose.Schema({
@@ -49,7 +50,6 @@ const userSchema = new mongoose.Schema({
         }
     },
     avatarPaths: {
-        type: String,
         original: { type: String, default: 'no-profile' },
         small: { type: String, default: 'no-profile' },
         large: { type: String, default: 'no-profile' }

@@ -8,13 +8,13 @@
  */
 
 // Import the database connection factory and fire it.
-// require('./db/mongoose')();
+require('./db/mongoose')();
 
 // Import the Express Application.
 const appFactory = require('./app');
 
 // Awilix Dependency Injection Container
-// const container = require('./container/containerFactory')();
+const container = require('./container/container-factory')();
 
 // Bind the server to the development port or whatever is available in production.
-// appFactory(container).listen(process.env.PORT, () => console.log(`Server is up on port ${process.env.PORT}`));
+appFactory(container).listen(process.env.PORT, () => console.log(`Server is up on port ${process.env.PORT}`));
