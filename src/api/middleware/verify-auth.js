@@ -29,8 +29,8 @@ const verifyAuth = inject(({ authenticationService, userService }) => async (req
         // Proceed.
         next();
     } catch (err) {
-        // Throw either a AuthenticationError (401) or a generic catch-all error (500).
-        throw err.name === 'ResourceNotFoundError' ? new AuthenticationError(err) : Error(err);
+        // Throw an AuthenticationError (401)
+        throw new AuthenticationError();
     }
 });
 

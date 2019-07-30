@@ -4,6 +4,9 @@
  * Description: Handles authentication token related operations for the user, namely, JSON Web Token signing and verification.
  */
 
+const { AuthenticationError } = require('./../custom-exceptions/index');
+
+
 /**
  * @description Handles authentication token related operations for the user, namely, JSON Web Token signing and verification.
  *
@@ -34,8 +37,12 @@ class AuthenticationService {
      * @memberof AuthenticationService
      */
     verifyAuthToken(token) {
-        // Attempt to verify the JSON Web Token for the user.
-        return this.jwt.verify(token, process.env.JWT_SECRET);
+        try {
+            // Attempt to verify the JSON Web Token for the user.
+            return this.jwt.verify(token, process.env.JWT_SECRET);
+        } catch (err) {
+            throw new AuthenticationError();
+        }
     }
 }
 
