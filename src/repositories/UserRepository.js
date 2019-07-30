@@ -34,6 +34,7 @@ class UserRepository {
 
             return user.toJSON();
         } catch (err) {
+
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }

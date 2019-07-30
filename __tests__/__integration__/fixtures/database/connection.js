@@ -19,9 +19,10 @@ const connectionFactory = require('./../../../../src/db/mongoose');
  * @param   {Object}   app               Express Application
  * @param   {Object}   request           request object from Supertest
  * @param   {Function} configureDatabase Optional setup callback function for the test suite
+ * @param   {Number}   portOverride      Optional method to override the default port.
  * @returns {Object}   An object containing the Supertest Agent, the disposable web server, and the Mongoose connection object.
  */
-const configureServerAndDatabaseConnectionForJestSetup = async (app, request, configureDatabase) => {
+const configureServerAndDatabaseConnectionForJestSetup = async (app, request, configureDatabase, portOverride) => {
     // An arbitrary Express Server.
     let server;
 
@@ -31,7 +32,7 @@ const configureServerAndDatabaseConnectionForJestSetup = async (app, request, co
 
     // Create a disposable web server for testing.
     await new Promise((resolve, reject) => {
-        server = app.listen(4000, err => {
+        server = app.listen(portOverride || 4000, err => {
             if (err) return reject(err);
             return resolve();
         });
