@@ -38,10 +38,10 @@ class FileStorageAdapter {
     }
 
     /**
-     * @description j
+     * @description Provides a promisified interface for file upload to the cloud storage.
      *
-     * @param {*} params
-     * @returns
+     * @param    {Object} params Upload params.
+     * @returns  Promise settling with data from the response to the cloud storage service.
      * @memberof FileStorageAdapter
      */
     deleteFile(params) {
@@ -54,10 +54,10 @@ class FileStorageAdapter {
     }
 
     /**
-     * @description
+     * @description Returns the absolute file URI based on its relative key.
      *
-     * @param {*} key
-     * @returns
+     * @param    {String} key Relative key.
+     * @returns  {String} The absolute file URI.
      * @memberof FileStorageAdapter
      */
     getAbsoluteFileURI(key) {
