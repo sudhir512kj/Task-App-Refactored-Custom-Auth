@@ -14,7 +14,6 @@
  */
 
 const handleErrors = (err, req, res, next) => {
-    console.log('Error', err);
     // If the err object has an err.data.custom property, it's one of ours.
     if (err.data && err.data.custom && err.data.custom === true) {
         // The err object already contains the status code and message we want to respond with.

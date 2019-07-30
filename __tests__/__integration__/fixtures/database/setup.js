@@ -8,6 +8,7 @@
 
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const User = require('./../../../../src/models/user');
 
 /* -------------------- Fixture Data - Users -------------------- */
@@ -22,11 +23,13 @@ const testUser = {
 
 // User One
 const userOneID = new mongoose.Types.ObjectId();
-const userOne = {
+const passwordPlain = 'useronepassword';
+const passwordHashed = bcrypt.hashSync(passwordPlain, 8);
+const userOneBody = {
     _id: userOneID,
     name: 'Richard P. Feynman',
     email: 'richard@domain.com',
-    password: 'a hashed password (user one)',
+    password: passwordHashed,
     tokens: [{
         token: jwt.sign({ _id: userOneID }, process.env.JWT_SECRET)
     }]
@@ -36,13 +39,14 @@ const userOne = {
 
 const configureDatabase = async () => {
     await User.deleteMany();
-    await new User(userOne).save();
+    await new User(userOneBody).save();
 };
 
 const cleanDatabaseResultObject = user => {
     // eslint-disable-next-line no-unused-vars
     const { __v, createdAt, updatedAt, ...rest } = user;
-    return rest;
+    // Despite calling toJSON, the MongoDB ObjectID is not cast to a string, which requires this workaround.
+    return JSON.parse(JSON.stringify(rest));
 };
 
 const getDefaultProperties = () => ({
@@ -57,7 +61,11 @@ const getDefaultProperties = () => ({
 module.exports = {
     // Users
     testUser,
-    userOne,
+    userOne: {
+        userOneBody,
+        passwordPlain,
+        passwordHashed
+    },
     // Configuration
     configureDatabase,
     cleanDatabaseResultObject,

@@ -40,7 +40,7 @@ router.post('/', inject(({ userService }) => async (req, res) => {
  * 2.) Respond with HTTP 200 with a user object and his/her token.
  */
 router.post('/login', inject(({ userService }) => async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password } = req.body.credentials;
 
     // Destructing to be explicit in what data is within the HTTP Response for secure coding purposes.
     const { user, token } = await userService.loginUser(email, password);

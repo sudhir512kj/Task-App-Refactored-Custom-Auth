@@ -128,8 +128,7 @@ describe('User Sign Up', () => {
         };
 
         // Assert that the user from the database contains the correct fields.
-        // Despite calling toJSON, the MongoDB ObjectID is not cast to a string, which requires this workaround.
-        expect(JSON.parse(JSON.stringify(cleanUser))).toEqual(expectedUser);
+        expect(cleanUser).toEqual(expectedUser);
 
         // Assert that the user's token from the database decodes to have the correct data.
         expect(user.tokens.length).toBe(1);
@@ -173,13 +172,13 @@ describe('User Sign Up', () => {
             .send({
                 user: {
                     ...userBody,
-                    email: userOne.email
+                    email: userOne.userOneBody.email
                 }
             })
             .expect(400);
 
         // Assert that no data was added to the database.
-        const user = await User.findOne({ ...userBody, email: userOne.email });
+        const user = await User.findOne({ ...userBody, email: userOne.userOneBody.email });
         expect(user).toBe(null);
 
         // Assert that the response contains an error.
@@ -208,5 +207,54 @@ describe('User Sign Up', () => {
         expect(response.body).toEqual({
             error: new ValidationError().message
         });
+    });
+});
+
+
+describe('User Login', () => {
+    const ROUTE = '/api/v1/users/login';
+    test('Should login an existing user', async () => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .post(ROUTE)
+            .send({
+                credentials: {
+                    email: userOne.userOneBody.email,
+                    password: userOne.passwordPlain
+                }
+            })
+            .expect(200);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove the timestamp and version from the user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            password: userOne.passwordHashed,
+            tokens: expect.any(Array)
+        };
+
+        // Assert that the user contains the correct data.
+        expect(cleanUser).toEqual(expectedUser);
+
+        // Assert that the tokens are correct.
+        expect(cleanUser.tokens.length).toBe(2);
+        expect(cleanUser.tokens[1].token).toEqual(expect.any(String));
+        cleanUser.tokens.forEach(({ token }) => expect(jwt.verify(token, process.env.JWT_SECRET)).toMatchObject({ _id: cleanUser._id.toString() }));
+
+        // Assert that the response contains the correct data.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({
+            user: expect.any(Object),
+            token: cleanUser.tokens[1].token
+        });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
     });
 });
