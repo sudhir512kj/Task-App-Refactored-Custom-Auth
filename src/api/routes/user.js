@@ -8,7 +8,7 @@
  * simply attempts to pull an Authorization Bearer Token off the header of the request and sticks it on `req.token`. `auth` takes that `req.token` and
  * attempts to verify that it is valid. Finally, `inject` is used from `awilix-express` to perform Dependency Injection and this achieve Inversion of Control.
  * 
- * Created by Jamie Corkhill on 06/20/2019 at 02:12 PM (Local), 07:12 PM (Zulu)
+ * Created by Jamie Corkhill on 07/28/2019 at 03:34 PM (Local), 07:37 PM (Zulu)
  */
 
 const express = require('express');
@@ -50,6 +50,7 @@ router.post('/login', inject(({ userService }) => async (req, res) => {
 // POST /api/v1/users/logout
 /*
  * 1.) Call the UserService function to logout a user.
+ * 2.) Respond with HTTP 200 and no data.
  */
 router.post('/logout', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     await userService.logoutUser(req.token);
@@ -59,6 +60,7 @@ router.post('/logout', stripBearerToken, verifyAuth, inject(({ userService }) =>
 // POST /api/v1/users/logoutAll
 /*
  * 1.) Call the UserService function to logout a user from all sessions across devices.
+ * 2.) Respond with HTTP 200 and no data.
  */
 router.post('/logoutAll', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     await userService.logoutUserAll();
@@ -69,6 +71,7 @@ router.post('/logoutAll', stripBearerToken, verifyAuth, inject(({ userService })
 /*
  * Description:
  * 1.) Call the UserService function to retrieve the logged in user.
+ * 2.) Respond with HTTP 200 and the user object.
  */
 router.get('/me', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     const user = await userService.retrieveUserById(req.user._id);
@@ -79,6 +82,7 @@ router.get('/me', stripBearerToken, verifyAuth, inject(({ userService }) => asyn
 /*
  * Description:
  * 1.) Call the UserService function to update the user.
+ * 2.) Respond with HTTP 200 and the user object.
  */
 router.patch('/me', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     const updatedUser = await userService.updateUser(req.body.updates);
@@ -89,6 +93,7 @@ router.patch('/me', stripBearerToken, verifyAuth, inject(({ userService }) => as
 /*
  * Description: 
  * 1.) Call the UserService function to delete the user.
+ * 2.) Respond with HTTP 200 and no data.
  */
 router.delete('/me', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     await userService.deleteUser();
@@ -112,7 +117,7 @@ router.post('/me/avatar', stripBearerToken, verifyAuth, upload.single('avatar'),
 /*
  * Description:
  * 1.) Call the UserService function to delete the user's avatar.
- * 2.) Respond with HTTP 200.
+ * 2.) Respond with HTTP 200 and no data.
  */
 router.delete('/me/avatar', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
     await userService.deleteUserAvatar();

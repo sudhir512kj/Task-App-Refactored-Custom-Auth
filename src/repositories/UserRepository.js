@@ -1,6 +1,6 @@
 
 // Custom Errors
-const { ValidationError } = require('../custom-exceptions/index');
+const { ValidationError, ResourceNotFoundError } = require('../custom-exceptions/index');
 
 class UserRepository {
     constructor({ User }) {
@@ -27,9 +27,8 @@ class UserRepository {
             const user = new this.User(userData);
             await user.save();
 
-            return user;
+            return user.toJSON();
         } catch (err) {
-            // TODO: Duplicate user error handling.
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
@@ -37,7 +36,8 @@ class UserRepository {
     async updateById(id, updates) {
         try {
             // Update and attempt to save. MongoDB won't validate if runValidators is not set to true.
-            return await this.User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+            const user = await this.User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+            return user.toJSON();
         } catch (err) {
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
@@ -45,7 +45,7 @@ class UserRepository {
 
     async updateTokensById(id, token) {
         try {
-            // Push the new item into the array.
+            // Push the new item into the array. toJSON already called in member method.
             return await this.updateById(id, {
                 $push: { tokens: { token } }
             });
@@ -57,7 +57,7 @@ class UserRepository {
 
     async removeTokenById(id, token) {
         try {
-            // Pull the provided token from the array.
+            // Pull the provided token from the array. toJSON already called in member method.
             return await this.updateById(id, {
                 $pull: { tokens: { token } }
             });
@@ -69,7 +69,7 @@ class UserRepository {
 
     async removeAllTokensById(id) {
         try {
-            // Set the user's tokens to be an empty array.
+            // Set the user's tokens to be an empty array. toJSON already called in member method.
             return await this.updateById(id, {
                 $set: { tokens: [] }
             });
@@ -81,7 +81,7 @@ class UserRepository {
 
     async updateAvatarById(id, newAvatarPaths) {
         try {
-            // Update the avatar.
+            // Update the avatar. toJSON already called in member method.
             return await this.updateById(id, { avatarPaths: newAvatarPaths });
         } catch (err) {
             // Not determining error here for it will be caught and thrown by `this.updateById` and then re-thrown here.
@@ -91,7 +91,8 @@ class UserRepository {
 
     async readByQuery(query) {
         try {
-            return await this.User.findOne(query);
+            const user = await this.User.findOne(query);
+            return user ? user.toJSON() : null;
         } catch (err) {
             throw err;
         }
@@ -100,7 +101,8 @@ class UserRepository {
     async readById(id) {
         try {
             // Call the model and get the user by their ID.
-            return await this.User.findById(id);
+            const user = await this.User.findById(id);
+            return user ? user.toJSON() : null;
         } catch (err) {
             throw err;
         }
@@ -109,7 +111,15 @@ class UserRepository {
     async deleteById(id) {
         try {
             // Call the user model and delete the user with the specified ID.
-            return await this.User.findById(id).remove();
+            const user = await this.User.findById(id);
+
+            // Throwing if there is no user.
+            if (!user) throw new ResourceNotFoundError();
+
+            // Delete the user.
+            await user.remove();
+
+            return user.toJSON();
         } catch (err) {
             throw err;
         }

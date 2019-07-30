@@ -19,6 +19,8 @@
 const EventEmitter = require('events');
 const { ValidationError, AuthenticationError, ResourceNotFoundError } = require('./../custom-exceptions/index');
 
+// TODO: Data sanitization.
+
 class UserService extends EventEmitter {
     constructor(
         { 
@@ -43,11 +45,29 @@ class UserService extends EventEmitter {
         this.context = context;
     }
 
+    /*
+     * Description:
+     * 1.) Throw a ValidationError if no `userData` object is provided.
+     * 2.) Hash the provided password.
+     * 3.) Build a safe use object by spreading out the dangerous object and overriding the plain-text password with the hashed password.
+     * 4.) Create the user in the database, throw an error and display a message if the email already exists, or throw an error for validation.
+     * 5.) Generate an authentication token and save it to the user object.
+     * 6.) Return the safe user object.
+     */
+    /**
+     * @description - Performs the required operations to sign up a new user, including handling ValidationErrors, hashing passwords, generating
+     *     authentication tokens, and stripping sensitive data from the user object before returning it.
+     *
+     * @param    {Object} userData Information regarding the user to sign up.
+     * @returns  {Object} The successfully signed up user.
+     * @memberof UserService
+     */
     async signUpNewUser(userData) {
-        // TODO: Bad request if data not sent up right.
         try {
+            if (!userData) throw new ValidationError();
+
             // Hash the user's password.
-            const hashedPassword = await this.passwordService.hash(userData.password);
+            const hashedPassword = await this.passwordService.hash(userData.password); 
 
             // Create a safe user object to store with no sensitive data in plain-text.
             const cleanUser = {
@@ -62,31 +82,43 @@ class UserService extends EventEmitter {
             // TODO: this.eventEmitter.emit('signed_up_user', { email, name });
 
             // Attain an authentication token for the user.
-            const token = this.authenticationService.generateAuthToken(userPreToken._id);
+            const token = this.authenticationService.generateAuthToken(userPreToken._id); 
 
             // Update the user in the database to save his/her token.
-            const userWithToken = await this.userRepository.updateTokensById(userPreToken._id, token);
-
-            // Transform the avatar relative paths to absolute URIs if an avatar has been provided.
-            userWithToken.avatarPaths = userWithToken.avatarPaths.original !== 'no-profile' ? (
-                this._mapRelativeAvatarPathsToAbsoluteAvatarURIs(userWithToken.avatarPaths) 
-            ) : (
-                userWithToken.avatarPaths
-            );
+            const userWithToken = await this.userRepository.updateTokensById(userPreToken._id, token); 
 
             return {
-                user: userWithToken,
+                user: this._transformUser(userWithToken),
                 token
             };
         } catch (err) {
-            throw err;
+            if (err.code === 11000) throw new ValidationError(null, 'The provided email address is already in use.');
+            throw err.name === 'ValidationError' ? new ValidationError(err) : new Error(err);
         }
     }
 
+    /*
+     * Description:
+     * 1.) Find the user in the database by their ID, `user` will be `null` if no user is found.
+     * 2.) Check if the user is authenticated. If `user` is `null`, the `isAuthenticated` boolean switch will be set to `false`. If `user` is defined and
+     * hashed passwords match, than the `isAuthenticated` boolean flag will be set to true.
+     * 3.) Throw an AuthenticationError if `isAuthenticated` is false.
+     * 4.) Generate a new authentication token for this sign in session and store it.
+     * 5.) Return the clean user.
+     */
+    /**
+     * @description - Attempts to log a user in, which includes querying the database for the user's email, ensuring the stored hashed password matches the
+     *     hash of the provided password, generating a new authentication token for this session, and returning the safe user object.
+     *
+     * @param    {String} email    The user's email address.
+     * @param    {String} password The user's password.
+     * @returns  {Object} The safe user object.
+     * @memberof UserService
+     */
     async loginUser(email, password) {
         try {
-            // Attempt to find the user by their email.
-            const user = await this.userRepository.readByQuery({ email });
+            // Attempt to find the user by their email. If user is null, an AuthenticationError will be thrown below.
+            const user = await this.userRepository.readByQuery({ email }); 
 
             // Determine whether the user is authenticated by checking passwords and existence.
             const isAuthenticated = user && user.password ? (
@@ -98,79 +130,152 @@ class UserService extends EventEmitter {
             if (!isAuthenticated) throw new AuthenticationError();
            
             // Attain an authentication token for the user.
-            const token = this.authenticationService.generateAuthToken(user._id);
+            const token = this.authenticationService.generateAuthToken(user._id); 
 
             // Update the user in the database to save his/her token.
             const userWithToken = await this.userRepository.updateTokensById(user._id, token);
 
             // The user is authorized.
             return {
-                user: userWithToken,
+                user: this._transformUser(userWithToken),
                 token
             };
         } catch (err) {
+            // Potential errors include an unknown error or an AuthenticationError.
             throw err;
         }
     }
 
+    /*
+     * Description:
+     * 1.) Call the Repository to remove a user's active token from the database.
+     */
+    /**
+     * @description - Logs out a user by invalidating their token for the logged in session.
+     *
+     * @param    {String} token JSON Web Token
+     * @returns  {Object} The safe logged out user object.
+     * @memberof UserService
+     */
     async logoutUser(token) {
         try {
             // Remove the user's existing token from the database.
-            return this.userRepository.removeTokenById(this.context.user._id, token);
+            return this._transformUser(await this.userRepository.removeTokenById(this.context.user._id, token));
         } catch (err) {
             throw err;
         }
     }
 
+    /*
+     * 1.) Call the Repository to remove all a user's active tokens from the database.
+     */
+    /**
+     * @description - Logs out a user by invalidating all their tokens across all sessions.
+     *
+     * @returns  {Object} The safe logged out user object.
+     * @memberof UserService
+     */
     async logoutUserAll() {
         try {
             // Remove all of the user's tokens from the database.
-            return this.userRepository.removeAllTokensById(this.context.user._id);
+            return this._transformUser(await this.userRepository.removeAllTokensById(this.context.user._id));
         } catch (err) {
             throw err;
         }
     }
 
+    /*
+     * Description:
+     * 1.) Destructure the user object off the context.
+     * 2.) If the signed in user is the target user, return the signed in user (safe) without making a network call.
+     * 3.) Otherwise, find the user from the Repository, make it safe, and return it (or throw a ResourceNotFoundError)
+     */
+    /**
+     * @description - Attempts to retrieve a user by their ID. If the requested user is the currently signed in user, then returns the current user without
+     *     making a network call to reduce response latency. Otherwise, requests the user, and makes the object safe before returning it.
+     *
+     * @param    {String} id The ID of the user.
+     * @returns  {Object} The safe user object.
+     * @memberof UserService
+     */
     async retrieveUserById(id) {
         try {
             const { user: authenticatedUser } = this.context;
 
             // Check if the requested user is the logged in user.
-            if (authenticatedUser != null && authenticatedUser._id === id) {
+            if (authenticatedUser !== null && authenticatedUser._id === id) {
                 // We don't need to make a network call and can return the user straight away.
-                return UserService._cleanUser(authenticatedUser.toJSON());
+                return UserService._stripSensitiveData(authenticatedUser);
             }
 
             // Attempt to find the user in the database.
             const user = await this.userRepository.readById(id);
 
-            const cleanUser = UserService._cleanUser(user.toJSON());
+            // Throw a ResourceNotFoundError if that user does not exist.
+            if (!user) throw new ResourceNotFoundError();
 
-            // TODO: Transform avatar paths.
-
-            return cleanUser;
+            return this._transformUser(user);
         } catch (err) {
             throw err;  
         }
     }    
 
+    /*
+     * Description:
+     * 1.) Find the user in the database via query.
+     * 2.) Throw an error if the user is null.
+     * 3.) Return the safe user.
+     */
+    /**
+     * @description - Attempts to find a user by a query, and returns that safe user if possible, otherwise throws a ResourceNotFoundError.
+     *
+     * @param   {Object} query The subset of the user object being requested.
+     * @returns {Object} The safe user object if discovered.
+     * @memberof UserService
+     */
     async retrieveUserByQuery(query) {
         try {
-            // TODO: Do we want to throw a ResourceNotFoundError here?
+            // Attempt to find the user by a query.
             const user = await this.userRepository.readByQuery(query);
 
-            return user;
+            // Throw a ResourceNotFoundError if that user does not exist.
+            if (!user) throw new ResourceNotFoundError();
+
+            return this._transformUser(user);
         } catch (err) {
             throw err;
         }
     }
 
-    async updateUser(requestedUpdates) {
-        // TODO: 400 for no updates.
+    /* 
+     * Description:
+     * 1.) If the `requestedUpdates` object is null, set it to be an empty object.
+     * 2.) Count the number of keys on the object, if it's zero, return the current user with no side effects.
+     * 3.) Otherwise, ensure the updates are valid.
+     * 4.) If valid and one of the updates is the password, make the password safe by hashing it.
+     * 5.) Update the user object in the DB with the updates.
+     * 6.) Return the safe object.
+     */
+    /**
+     * @description - Attempts to update a user by ensuring the updates for the user are valid. If no updates are provided, the current state of the user
+     *     is returned, if updates are invalid, a ResourceNotFoundError is thrown, if updates are valid, then the user is updated as specified. If the updates
+     *     are valid and one of the updates is a password, then the new password is hashed before being sent across the network (despite being SSL Encrypted
+     *     with HSTS enforced).
+     *
+     * @param    {Object} [requestedUpdates={}] The requested updates.
+     * @returns  {Object} The updated user object.
+     * @memberof UserService
+     */
+    async updateUser(requestedUpdates = {}) {
         try {
-            // Verify that the requested updates are valid.
+            // Create an empty allowed updates object and enumerate `requestedUpdates` keys.
             const validUpdates = {};
             const updateKeys = Object.keys(requestedUpdates);
+
+            // Abort if no updates have been provided.
+            if (updateKeys.length === 0) return await this.retrieveUserById(this.context.user._id);
+            
+            // Verify that the requested updates are valid.
             const allowedUpdates = ['name', 'email', 'password', 'age'];
             const isValidOperation = updateKeys.every(update => allowedUpdates.includes(update));
 
@@ -185,19 +290,52 @@ class UserService extends EventEmitter {
                 validUpdates.password = await this.passwordService.hash(requestedUpdates.password);
             }
 
-            return await this.userRepository.updateById(this.context.user._id, validUpdates);
+            return this._transformUser(await this.userRepository.updateById(this.context.user._id, validUpdates));
         } catch (err) {
             throw err;
         }
     }
 
+    /*
+     * Description:
+     * 1.) TODO: Cascade deletion of tasks.
+     * 2.) TODO: Send cancellation emails.
+     * 3.) Delete the user.
+     */
+    /**
+     * @description Deletes a user from the database, handles cascade deletion of user tasks, and sends cancellation emails.
+     *
+     * @memberof UserService
+     */
     async deleteUser() {
-        // TODO: Delete Tasks.
-        // TODO: Send cancellation emails.
+        try {
+            // TODO: Delete Tasks.
+            // TODO: Send cancellation emails.
 
-        await this.userRepository.deleteById(this.context.user._id);
+            await this.userRepository.deleteById(this.context.user._id);
+        } catch (err) {
+            throw err;
+        }        
     }
 
+    /*
+     * Description:
+     * 1.) If no avatar buffer has been provided, set the relative paths to point to the default avatars and return the safe user.
+     * 2.) Otherwise, send the image away for processing and upload.
+     * 3.) Create a temporary avatar path object and store the relative avatar paths on there (dynamically creating the key names).
+     * 4.) Update the database and return the safe user.
+     */
+    /**
+     * @description - Attempts to handle the processing and uploading of a user's avatar. If no avatar buffer is provided (so `avatarBuffer` is null), then
+     *     the database is updated to contain relative paths to the default avatar for all images from the cloud storage solution, which is an anonymous image.
+     *     If `avatarBuffer` is non-null, then calls are made to handle processing and subsequently uploading the avatar image to the cloud storage solution.
+     *     After a successful upload to cloud storage, the database is updated to contain the relative paths that point to the storage location of the Blob in
+     *     storage. The safe user is then returned.
+     *
+     * @param    {Buffer} avatarBuffer The buffer of the user's avatar.
+     * @returns  {Object} The safe user object.
+     * @memberof UserService
+     */
     async uploadUserAvatar(avatarBuffer) {
         const { _id } = this.context.user;
         try {
@@ -205,11 +343,9 @@ class UserService extends EventEmitter {
             if (!avatarBuffer) {
                 // Using default avatar.
                 const updatedUser = await this.userRepository
-                    .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatars());
-
-                // TODO: Transform the avatar relative paths to absolute URIs.
+                    .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
                 
-                return updatedUser;
+                return this._transformUser(updatedUser);
             }
 
             /* An avatar image has been provided if we make it to here. */
@@ -228,17 +364,25 @@ class UserService extends EventEmitter {
             // Attain the updated user after updating the avatar paths.
             const updatedUser = await this.userRepository.updateAvatarById(_id, avatarPaths);
 
-            // Transform the avatar relative paths to absolute URIs. Could also use result[i].Location, but it's better to stick with one source of truth
-            // for mapping.
-            updatedUser.avatarPaths = this._mapRelativeAvatarPathsToAbsoluteAvatarURIs(updatedUser.avatarPaths);
-
-            // We obviously need to settle this promise with the new user to return.
-            return updatedUser;
+            return this._transformUser(updatedUser);
         } catch (err) {
             throw err;
         }
     }
 
+    /*
+     * Description:
+     * 1.) If the database does not contain a path to a unique image, make no changes and return the safe user.
+     * 2.) Otherwise, delete the image from cloud storage by generating it's keys dynamically.
+     * 3.) Return the transformed user with the database now pointing to the default avatars.
+     */
+    /**
+     * @description - Attempts to delete a user's avatar by removing the avatar image from the cloud storage solution and resetting the `avatarPaths`
+     *    in the database to point to the default avatar image initially provided for all users.
+     *
+     * @returns  {Object} The safe user object.
+     * @memberof UserService
+     */
     async deleteUserAvatar() {
         try {
             const { user, user: { _id, avatarPaths } } = this.context;
@@ -246,23 +390,33 @@ class UserService extends EventEmitter {
 
             // We don't want to delete a binary object from cloud storage if that object does not exist.
             if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
-                return user;
+                return UserService._transformUser(user);
             }
 
             // Remove all avatar images for the current user from cloud storage.
-            await Promise.all(Object.keys(user.toJSON().avatarPaths)
+            await Promise.all(Object.keys(user.avatarPaths)
                     .map(objKey => this.fileStorageService
                         .deleteAvatarImage(this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey]))));
 
             // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
-            const updatedUser = await this.userRepository.updateAvatarById(_id, defaultAvatarPaths);
-
-            return updatedUser;
+            return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));
         } catch (err) {
             throw err;
         }
     }
 
+    /*
+     * Description:
+     * 1.) Attempt to find the user in the database, if not, throw a ResourceNotFoundError.
+     * 2.) Perform mapping logic for avatar paths and then return the `avatarPaths` object.
+     */
+    /**
+     * @description - Provides an object containing URLs that point to the user's avatar.
+     *
+     * @param    {String} id The ID of the user for whom avatar paths will be discovered.
+     * @returns  {Object} The aggregated URL object.
+     * @memberof UserService
+     */
     async retrieveUserAvatarURLById(id) {
         try {
             const user = await this.userRepository.readById(id);
@@ -277,10 +431,49 @@ class UserService extends EventEmitter {
         }
     }
 
-    static _cleanUser(user) {
+    /*
+     * Description:
+     * 1.) Using the spread operator to stript the password and tokens properties, dumping the rest in `cleanUser`.
+     * 2.) Return the clean user.
+     */
+    /**
+     * @description - Private member function as noted by the '_' prefix. Removes the `password` and `tokens` field if they exist to make the user object
+     * safe, and then returns that safe object.
+     *
+     * @static
+     * @param    {Object} user The unsafe user object.
+     * @returns  {Object} The safe user object.
+     * @memberof UserService
+     */
+    static _stripSensitiveData(user) {
         // eslint-disable-next-line no-unused-vars
         const { password, tokens, ...cleanUser } = user;
         return cleanUser;
+    }
+
+    /*
+     * Description:
+     * 1.) Strip any sensitive data from the provided user.
+     * 2.) Return an object with the clean user and mapped avatar paths if such unique paths exist. 
+     */
+    /**
+     * @description - Private member function as noted by the '_' prefix. Maps the relative avatar URLs to absolute avatar URLs.
+     *
+     * @param {*} user 
+     * @returns
+     * @memberof UserService
+     */
+    _transformUser(user) {
+        const strippedUser = UserService._stripSensitiveData(user);
+        return {
+            ...strippedUser,
+            // If the avatar paths are not the database default, then map them, otherwise, leave them.
+            avatarPaths: strippedUser.avatarPaths.original !== 'no-profile' ? (
+                this._mapRelativeAvatarPathsToAbsoluteAvatarURIs(strippedUser.avatarPaths)
+            ) : (
+                strippedUser.avatarPaths
+            )
+        };
     }
 
     /*

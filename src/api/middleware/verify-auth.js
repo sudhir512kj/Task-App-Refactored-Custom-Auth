@@ -19,10 +19,8 @@ const verifyAuth = inject(({ authenticationService, userService }) => async (req
         const decoded = authenticationService.verifyAuthToken(req.token);
 
         // Ensure that the user exists in the database by their ID and current token.
+        // A ResourceNotFoundError will be thrown if the user does not exist, which will be caught below and an AuthenticationError will be thrown.
         const user = await userService.retrieveUserByQuery({ _id: decoded._id, 'tokens.token': req.token });
-
-        // Throw an error if the user does not exist in the database.
-        if (!user) throw new Error();
 
         // We have the user now, so register it on the request and in the container (so we can use it in services).
         req.user = user;
@@ -31,7 +29,8 @@ const verifyAuth = inject(({ authenticationService, userService }) => async (req
         // Proceed.
         next();
     } catch (err) {
-        throw new AuthenticationError();
+        // Throw either a AuthenticationError (401) or a generic catch-all error (500).
+        throw err.name === 'ResourceNotFoundError' ? new AuthenticationError(err) : Error(err);
     }
 });
 
