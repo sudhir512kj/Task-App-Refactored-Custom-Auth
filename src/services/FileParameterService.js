@@ -7,6 +7,11 @@
  */
 
 
+/**
+ * @description Handles file parameter generation for the cloud storage solution.
+ *
+ * @class FileParameterService
+ */
 class FileParameterService {
     constructor({ appConfig }) {
         this.appConfig = appConfig;
@@ -58,13 +63,13 @@ class FileParameterService {
     }
 
     /**
-     * @description - 
+     * @description - Generates locale data for an avatar iamge.
      *
-     * @param {*} [key=undefined]
-     * @param {*} type
-     * @param {*} ext
-     * @param {*} uid
-     * @returns
+     * @param    {String} [key=undefined] (required without `type`, `ext`, and `uid`)
+     * @param    {String} type            (required without key) The image type (original, small, large).
+     * @param    {String} ext             (required without key) The image extension (e.g, .jpg)
+     * @param    {String} uid             (required without key) The user's UID.
+     * @returns  {Object} Partial param data including `Key` and `Bucket`.
      * @memberof FileParameterService
      */
     generateAvatarImageLocaleData(key = undefined, type, ext, uid) {

@@ -65,10 +65,10 @@ class FileStorageAdapter {
     }
 
     /**
+     * @description Returns the relative file URI based on it's absolute URI.
      *
-     *
-     * @param {*} absoluteURI
-     * @returns
+     * @param   {String} absoluteURI The absolute URI.
+     * @returns {String} The relative URI.
      * @memberof FileStorageAdapter
      */
     getRelativeFileURI(absoluteURI) {

@@ -12,12 +12,30 @@ class PasswordService {
         this.bcrypt = bcrypt;
     }
 
-    async hash(plainTextPassword) {
+    /**
+     * @description The plaintext password to be hashed.
+     *
+     * @param    {String} plainTextPassword The original unsafe plain-text password.
+     * @param    {Number} [saltRounds=8]    The salting rounds (default 8)
+     * @returns  {String} The computed hash.
+     * @memberof PasswordService
+     */
+    async hash(plainTextPassword, saltRounds = 8) {
         return this.bcrypt.hash(plainTextPassword, 8);
     }
 
-    async compare(passwordOne, passwordTwo) {
-        return this.bcrypt.compare(passwordOne, passwordTwo);
+    /**
+     * @description Compare a plainText password with a hashed password to check for a match.
+     *
+     * @param    {String} plainText The plaintext password.
+     * @param    {String} hashed    The hashed password.
+     * @returns  The match result.
+     * @memberof PasswordService
+     */
+    async compare(plainText, hashed) {
+        // Return without await as to not wrap in an unnecessary promise since async functions return a promise by default. This will resolve with the
+        // match or reject with an error.
+        return this.bcrypt.compare(plainText, hashed);
     }
 }
 

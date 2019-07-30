@@ -2,6 +2,11 @@
 // Custom Errors
 const { ValidationError, ResourceNotFoundError } = require('../custom-exceptions/index');
 
+/**
+ * @description - The UserRepository class handles CRUD-related operations on the database.
+ *
+ * @class UserRepository
+ */
 class UserRepository {
     constructor({ User }) {
         // Dependency Injection
@@ -33,6 +38,14 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description - Updates a user by their ID, validating the updates, and converting to JSON.
+     *
+     * @param    {String} id      The ID of the user to update.
+     * @param    {String} updates The updates object.
+     * @returns  The JSON version of the updated user.
+     * @memberof UserRepository
+     */
     async updateById(id, updates) {
         try {
             // Update and attempt to save. MongoDB won't validate if runValidators is not set to true.
@@ -43,6 +56,14 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Updates a user's tokens array.
+     *
+     * @param    {String} id    The UD of the user to update.
+     * @param    {String} token The new token.
+     * @returns  The JSON version of the updated user.
+     * @memberof UserRepository
+     */
     async updateTokensById(id, token) {
         try {
             // Push the new item into the array. toJSON already called in member method.
@@ -55,6 +76,14 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Updates a user's tokens array.
+     *
+     * @param    {String} id    The UD of the user to update.
+     * @param    {String} token The new token.
+     * @returns  The JSON version of the updated user.
+     * @memberof UserRepository
+     */
     async removeTokenById(id, token) {
         try {
             // Pull the provided token from the array. toJSON already called in member method.
@@ -67,6 +96,13 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Removes all tokens from the database for a user.
+     *
+     * @param    {String} id The ID of the user for whom to remove the tokens.
+     * @returns  {Object} The JSON version of the updated user.
+     * @memberof UserRepository
+     */
     async removeAllTokensById(id) {
         try {
             // Set the user's tokens to be an empty array. toJSON already called in member method.
@@ -79,6 +115,14 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Updates the paths that point to a user's avatar.
+     *
+     * @param    {String} id             The ID of the user from whom to update the paths.
+     * @param    {Object} newAvatarPaths The new avatar paths which which to perform updates.
+     * @returns  {Object} The JSON version of the updated user.
+     * @memberof UserRepository
+     */
     async updateAvatarById(id, newAvatarPaths) {
         try {
             // Update the avatar. toJSON already called in member method.
@@ -89,6 +133,13 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Attempts to find a user by a query object, returning `null` if not found.
+     *
+     * @param    {Object} query The query object with which to perform a search.
+     * @returns  The JSON version of the found user or `null`.
+     * @memberof UserRepository
+     */
     async readByQuery(query) {
         try {
             const user = await this.User.findOne(query);
@@ -98,6 +149,13 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Attempts to find a user by their ID, returning `null` if not found.
+     *
+     * @param    {String} id The ID of the user which which to perform a search.
+     * @returns  The JSON version of the found user or `null`.
+     * @memberof UserRepository
+     */
     async readById(id) {
         try {
             // Call the model and get the user by their ID.
@@ -108,6 +166,13 @@ class UserRepository {
         }
     }
 
+    /**
+     * @description Attempts to delete a user by their ID, throwing an error if none is found.
+     *
+     * @param    {String} id The ID of the User Document to delete.
+     * @returns  {Object} The JSON version of the found user
+     * @memberof UserRepository
+     */
     async deleteById(id) {
         try {
             // Call the user model and delete the user with the specified ID.

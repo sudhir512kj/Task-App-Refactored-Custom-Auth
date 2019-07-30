@@ -9,7 +9,6 @@
 
 const mongoose = require('mongoose');
 const validator = require('validator');
-const awilix = require('awilix');
 
 // Define the schema.
 const userSchema = new mongoose.Schema({
@@ -34,11 +33,6 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
         minlength: 7,
-        validate(value) {
-            if (value.toLowerCase().includes('password')) {
-                throw new Error('Password can not contain password');
-            }
-        }
     },
     age: {
         type: Number,
