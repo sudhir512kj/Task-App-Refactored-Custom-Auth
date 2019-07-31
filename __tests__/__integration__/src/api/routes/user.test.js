@@ -9,6 +9,7 @@
 const supertest = require('supertest');
 const awilix = require('awilix');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 // Express Application
 const appFactory = require('./../../../../../src/app');
@@ -72,32 +73,47 @@ beforeEach(async () => {
 // Hooks - After All
 afterAll(async () => tearDownServerAndDatabaseConnectionForJest(connection, server));
 
+const setupLocalContainerAndServer = registrations => {
+    // #region Local Supertest/Server Setup for the Describe-Block
+    let localAgent, localServer, localApp;
+
+    const beforeAllSetup = done => {
+        // Attain a clean container for the tests in the describe block.
+        const localContainer = containerFactory();
+
+        // Register mocks on this local container.
+        localContainer.register(registrations);
+
+        // Setup the Express App for this describe block only.
+        localApp = appFactory(localContainer);
+        localServer = localApp.listen(done);
+        localAgent = supertest.agent(localServer);
+
+        return localAgent;
+    };
+
+    const afterAllTeardown = (done) => {
+        localServer.close(done);
+    };
+    // #endregion
+
+    return { beforeAllSetup, afterAllTeardown };
+};
+
 /* ==================== Integration Test Cases ==================== */
 
 // POST /api/vv1/users
 describe('User Sign Up', () => {
     const ROUTE = '/api/v1/users';
 
-    // #region Local Supertest/Server Setup for this Describe-Block
-    let localAgent, localServer, localApp;
-
-    beforeAll(done => {
-        // Attain a clean container for the tests in this describe block.
-        const localContainer = containerFactory();
-
-        // Register mocks on this local container.
-        localContainer.register({
-            bcrypt: awilix.asValue(bcryptMock)
-        });
-
-        // Setup the Express App for this describe block only.
-        localApp = appFactory(localContainer);
-        localServer = localApp.listen(done);
-        localAgent = supertest.agent(localServer);
+    let localAgent;
+    const { beforeAllSetup, afterAllTeardown } = setupLocalContainerAndServer({
+        bcrypt: awilix.asValue(bcryptMock)
     });
 
-    afterAll(done => localServer.close(done));
-    // #endregion
+    // eslint-disable-next-line no-return-assign
+    beforeAll(done => localAgent = beforeAllSetup(done));
+    afterAll(done => afterAllTeardown(done));
 
     // Test user body.
     const userBody = {
@@ -108,7 +124,7 @@ describe('User Sign Up', () => {
 
     test('Should sign up a user correctly', async () => {
         // Assert HTTP Response Status 201 Created.
-        const response = await localAgent
+        const response = await localAgent // localAgent for access to the container with mocked dependencies.
             .post(ROUTE)
             .send({ user: userBody })
             .expect(201);
@@ -136,6 +152,7 @@ describe('User Sign Up', () => {
         expect(jwt.verify(user.tokens[0].token, process.env.JWT_SECRET)).toMatchObject({ _id: response.body.user._id });
 
         // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
         delete expectedUser.password;
         expect(response.body).toEqual({
             user: expect.any(Object),
@@ -251,6 +268,7 @@ describe('User Login', () => {
         cleanUser.tokens.forEach(({ token }) => expect(jwt.verify(token, process.env.JWT_SECRET)).toMatchObject({ _id: cleanUser._id.toString() }));
 
         // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
         delete expectedUser.password;
         delete expectedUser.tokens;
         expect(response.body).toEqual({
@@ -377,4 +395,186 @@ describe('User Logout of all Sessions', () => {
             error: new AuthenticationError().message
         });
     });
+});
+
+// GET /api/v1/users/me
+describe('Read User Profile', () => {
+    const ROUTE = '/api/v1/users/me';
+    test('Should correctly return user profile information for an authenticated user', async () => {
+        // Assert HTTP Response Status 200 OK
+        const response = await agent
+            .get(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({ user: expect.any(Object) });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...getDefaultProperties(),
+            ...Object.keys(userOne.userOneBody) // It's ugly but it works, so I'll take it. - Jamie.
+                .filter(key => key !== 'tokens' && key !== 'password')
+                .reduce((obj, key) => ({ ...obj, [key]: userOne.userOneBody[key] }), {}),
+            _id: userOne.userOneBody._id.toString(),
+        });
+    });
+
+    test('Should not return profile information for an unauthenticated user', async () => {
+        // Assert HTTP Response Status 401 Unauthorized
+        const response = await agent
+            .get(ROUTE)
+            .send()
+            .expect(401);
+
+        // Assert that the response contains the correct error.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+    });
+});
+
+describe('Update User Profile', () => {
+    const ROUTE = '/api/v1/users/me';
+
+    let localAgent;
+    const { beforeAllSetup, afterAllTeardown } = setupLocalContainerAndServer({
+        bcrypt: awilix.asValue(bcryptMock)
+    });
+
+    // eslint-disable-next-line no-return-assign
+    beforeAll(done => localAgent = beforeAllSetup(done));
+    afterAll(done => afterAllTeardown(done));
+
+    test('Should update a user profile if the updates are valid and the user is authenticated', async () => {
+        // Requested valid updates.
+        const updates = {
+            name: 'New Name',
+            email: 'newemail@domain.com',
+            age: 18,
+        };
+        
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .patch(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send({ updates })
+            .expect(200);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove the version and timestamp fields from the database result object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            ...updates,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: [{
+                _id: expect.any(String),
+                token: userOne.userOneBody.tokens[0].token
+            }]
+        };
+
+        // Assert that the user contains the correct data.
+        expect(cleanUser).toEqual(expectedUser);
+
+        // Assert that the result contains the correct data.
+        // It's safe mutate the expectedUser object here.
+        delete expectedUser.tokens;
+        delete expectedUser.password;
+        expect(response.body).toEqual({ user: expect.any(Object) });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
+    test('Should rehash an updated user\'s password if other updates are valid and if the user is authenticated', async () => {
+        // Requested valid updates.
+        const updates = {
+            name: 'A new name',
+            password: 'a new password'
+        };
+        
+        // Assert HTTP Response Status 200 OK.
+        const response = await localAgent
+            .patch(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send({ updates })
+            .expect(200);
+
+            // Attempt to find the user in the database.
+            const user = await User.findById(userOne.userOneBody._id);
+    
+            // Remove the version and timestamp fields from the database result object.
+            const cleanUser = cleanDatabaseResultObject(user.toJSON());
+    
+            // The expected result object.
+            const expectedUser = {
+                ...getDefaultProperties(),
+                ...userOne.userOneBody,
+                ...updates,
+                _id: userOne.userOneBody._id.toString(),
+                password: 'hashed-password',
+                tokens: [{
+                    _id: expect.any(String),
+                    token: userOne.userOneBody.tokens[0].token
+                }]
+            };
+    
+            // Assert that the user contains the correct data.
+            expect(cleanUser).toEqual(expectedUser);
+    
+            // Assert that the result contains the correct data.
+            // It's safe mutate the expectedUser object here.
+            delete expectedUser.tokens;
+            delete expectedUser.password;
+            expect(response.body).toEqual({ user: expect.any(Object) });
+            expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
+    test('Should throw a ValidationError if a user with a valid Bearer Token attempts to update invalid fields', async () => {
+        // Assert HTTP Response Bad Request
+        const response = await agent
+            .patch(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send({
+                updates: {
+                    _id: 'a new id',
+                    password: 'a new password'
+                }
+            })
+            .expect(400);
+
+        // Assert that the database remains unchanged.
+        const user = await User.findById(userOne.userOneBody._id);
+        expect(cleanDatabaseResultObject(user.toJSON())).toEqual({
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: [{
+                _id: expect.any(String),
+                token: userOne.userOneBody.tokens[0].token
+            }]
+        });
+
+        // Assert that the response contains the correct error.
+        expect(response.body).toEqual({
+            error: new ValidationError().message
+        });
+    });
+
+    test('Should return an AuthenticationError if a user does not have a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 401 Unauthorized.
+        const response = await agent
+            .patch(ROUTE)
+            .send()
+            // Not a 400 because the AuthenticationError should be thrown before a ValidationError due to middleware ordering of Express.
+            .expect(401);
+        
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });        
+    }); 
 });
