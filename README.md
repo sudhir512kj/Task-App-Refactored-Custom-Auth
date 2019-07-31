@@ -29,7 +29,7 @@ MODE=dev
 PORT=[port]
 AWS_ACCESS_KEY_ID=[aws_access_key_id]
 AWS_SECRET_ACCESS_KEY=[aws_secret_access_key]
-MONGODB_URL=mongodb://127.0.0.1:27017/task-app-refactored-custom-auth-api
+MONGODB_URL=mongodb://127.0.0.1:27017/task-app-refactored-custom-auth-api-test
 JWT_SECRET=[jwt_secret]
 MODE=test
 ```
@@ -43,11 +43,11 @@ To execute this API  on `localhost`, ensure a MongoDB Database Server is running
 ```
 npm run dev
 ```
-If you plan to fork or make changes to this codebase, you can optionally watch for changes with `nodemon`:
+This will run the server on your loopback IP Address on port 3000. If you plan to fork or make changes to this codebase, you can optionally watch for changes with `nodemon`:
 ```
 npm run dev-watch
 ```
-A batch file has been included to permit the easy running of the MongoDB Server. Just edit the batch file to include the paths of your `mongo-data` folders and your `mongod` executable, and run it with:
+A batch file has been included to permit the easy running of the MongoDB Server. Just edit the batch file to include the paths of your `mongo-data` folder and your `mongod` executable, and run it with:
 ```
 npm run dev-db-server
 ```
@@ -60,8 +60,10 @@ This repository contains two types of tests - Integration Tests and Unit Tests. 
 ```
 __tests__/**/*.test.js
 ```
-Jest has been specifically configured to use that pattern and to run all tests in band with the `--runInBand` flag as to prevent conflicts between seed data within spun up instances.
+Jest has been specifically configured to use that pattern in the Node environment and to run all tests in band with the `--runInBand` flag as to prevent conflicts between seed data within spun up instances.
 
-Care has been taken to help prevent memory leaks by ensuring MongoDB Server Instances (through `mongoose`) and supertest agent servers are disposed upon each termination of a test suite, with clean servers spun up for the next suite, and subsequently shut down.
+Care has been taken to help prevent memory leaks and race conditions by running in band and by ensuring MongoDB Server Instances (through `mongoose`) and `supertest` agent servers are disposed upon each termination of a test suite, with clean servers spun up for the next suite, and subsequently shut down.
 
-Due to the complexities of Dependency Injection, database and supertest agent servers are occasionally spun up locally to a set of `test` functions within a `describe` block of Jest, permitting those tests and those tests only to operate on an Express Application that has specific dependencies mocked within the Dependency Injection Container (Awilix). Again, these local servers are disposed upon completion.
+Due to the complexities of Dependency Injection, database and `supertest` agent servers are occasionally spun up locally to a set of `test` functions within
+a `describe` block of Jest, permitting those tests and those tests only to operate on an Express Application that has specific dependencies mocked within
+the Dependency Injection Container (Awilix). Again, these local servers are disposed upon completion of use.
