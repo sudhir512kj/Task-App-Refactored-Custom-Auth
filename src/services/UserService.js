@@ -117,6 +117,9 @@ class UserService extends EventEmitter {
      */
     async loginUser(email, password) {
         try {
+            // The email and password is sort of important...
+            if (!email || !password) throw new ValidationError();
+
             // Attempt to find the user by their email. If user is null, an AuthenticationError will be thrown below.
             const user = await this.userRepository.readByQuery({ email }); 
 

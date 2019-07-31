@@ -74,6 +74,7 @@ afterAll(async () => tearDownServerAndDatabaseConnectionForJest(connection, serv
 
 /* ==================== Integration Test Cases ==================== */
 
+// POST /api/vv1/users
 describe('User Sign Up', () => {
     const ROUTE = '/api/v1/users';
 
@@ -211,6 +212,7 @@ describe('User Sign Up', () => {
 });
 
 
+// POST /api/v1/users/login
 describe('User Login', () => {
     const ROUTE = '/api/v1/users/login';
     test('Should login an existing user', async () => {
@@ -256,5 +258,123 @@ describe('User Login', () => {
             token: cleanUser.tokens[1].token
         });
         expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
+    test('Should not login an nonexistent user', async () => {
+        // The fake credentials.
+        const credentials = {
+            email: 'arbitrary@domain.com',
+            password: 'not-a-password'
+        };
+
+        // Assert HTTP Response 401 Unauthorized.
+        const response = await agent
+            .post(ROUTE)
+            .send({ credentials })
+            .expect(401);
+
+        // Assert that no user was added to the database.
+        const user = await User.findOne(credentials);
+        expect(user).toBe(null);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+    });
+
+    test('Should return an HTTP 400 if incorrect data is sent', async () => {
+        // Assert HTTP Response Status 400 Bad Request.
+        const response = await agent
+            .post(ROUTE)
+            .send()
+            .expect(400);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({
+            error: new ValidationError().message
+        });
+    });
+});
+
+// POST /api/v1/users/logout
+describe('User Logout of Session', () => {
+    const ROUTE = '/api/v1/users/logout';
+    test('Should correctly log out a user of a single session', async () => {
+        // Assert HTTP Response Status 200 OK.
+        await agent
+            .post(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove the timestamp and version fields from the user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // Assert that the user contains the correct data. (i.e, not the token we were signed in with, evident by the Auth Bearer Token above.)
+        expect(cleanUser).toEqual({
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: expect.not.arrayContaining([userOne.userOneBody.tokens[0]])
+        });
+    });
+
+    test('Should not log out a user if that user does not have a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 401 Unauthorized.
+        const response = await agent
+            .post(ROUTE)
+            .set('Authorization', 'Bearer 123')
+            .send()
+            .expect(401);
+
+        // Assert that the response contains the correct error.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+    });
+});
+
+// POST /api/v1/users/logoutAll
+describe('User Logout of all Sessions', () => {
+    const ROUTE = '/api/v1/users/logoutAll';
+    test('Should correctly log out a user of all sessions', async () => {
+        // Assert HTTP Response Status 200 OK.
+        await agent
+            .post(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove the timestamp and version fields from the user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // Assert that the user contains the correct data. (i.e, not the token we were signed in with, evident by the Auth Bearer Token above.)
+        expect(cleanUser).toEqual({
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: []
+        });
+    });
+
+    test('Should not log out a user if that user does not have a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 401 Unauthorized.
+        const response = await agent
+            .post(ROUTE)
+            .set('Authorization', 'Bearer 123')
+            .send()
+            .expect(401);
+
+        // Assert that the response contains the correct error.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
     });
 });
