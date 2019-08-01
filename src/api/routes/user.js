@@ -124,7 +124,7 @@ router.delete('/me/avatar', stripBearerToken, verifyAuth, inject(({ userService 
     return res.send();
 }));
 
-// GET /api/v1/users/me/avatar
+// GET /api/v1/users/:id/avatar
 /*
  * Description:
  * 1.) Call the UserService to retrieve a user's avatar.

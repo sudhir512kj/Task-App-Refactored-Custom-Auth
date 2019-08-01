@@ -9,7 +9,12 @@
 const supertest = require('supertest');
 const awilix = require('awilix');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const awsMock = require('mock-aws-s3');
+const sizeOf = require('buffer-image-size');
+const fs = require('fs-extra');
+const appConfig = require('./../../../../../src/config/application/config');
+
+const ABSOLUTE_URL_PREFIX = `http://${appConfig.cloudStorage.buckets.getMainBucket()}.s3.us-west-2.amazonaws.com`;
 
 // Express Application
 const appFactory = require('./../../../../../src/app');
@@ -17,7 +22,8 @@ const appFactory = require('./../../../../../src/app');
 // Custom Exceptions
 const { 
     AuthenticationError,
-    ValidationError 
+    ValidationError,
+    ResourceNotFoundError 
 } = require('./../../../../../src/custom-exceptions/index');
 
 // Functions to configure server and database server connections.
@@ -35,18 +41,27 @@ const container = containerFactory();
 // Models - User
 const User = require('./../../../../../src/models/user');
 
-// Database Fixtures
+// Data Fixtures
 const {
-    // Database Configuration Functions
+    // Configuration Functions
     configureDatabase,
+    configureBucket,
     cleanDatabaseResultObject,
     getDefaultProperties,
     // Fixture Data
     testUser,
-    userOne
+    userOne,
+    userTwo,
+    avatar
+    // Other
 } = require('./../../../fixtures/database/setup');
 
 // ---------- Mocks ---------- */
+
+const spys = {
+    upload: null,
+    deleteObject: null
+};
 
 // #region Mocks
 // #region BCrypt Mock
@@ -56,10 +71,32 @@ const bcryptMock = {
 // #endregion
 // #endregion
 
+const basePath = `${__dirname}/../../../../../tmp/buckets`;
+
 /* ---------- Hooks ---------- */
 
 // Hooks - Before All
 beforeAll(async () => {
+    // AWS
+    awsMock.config.basePath = basePath;
+
+    container.register({
+        // Registering the AWS Mock
+        // eslint-disable-next-line func-names, object-shorthand
+        aws: awilix.asValue({ S3: function () {
+            const mockInstance = awsMock.S3({
+                params: { 
+                    Bucket: appConfig.cloudStorage.buckets.getMainBucket()
+                }
+            });
+
+            spys.upload = jest.spyOn(mockInstance, 'upload');
+            spys.deleteObject = jest.spyOn(mockInstance, 'deleteObject');
+
+            return mockInstance;
+        } })
+    });
+
     // Configure server and database connections.
     // eslint-disable-next-line no-extra-semi
     ;({ agent, server, connection } = await configureServerAndDatabaseConnectionForJestSetup(appFactory(container), supertest));
@@ -68,10 +105,13 @@ beforeAll(async () => {
 // Hooks - Before Each
 beforeEach(async () => {
     await configureDatabase();
+    jest.clearAllMocks();
 });
 
 // Hooks - After All
-afterAll(async () => tearDownServerAndDatabaseConnectionForJest(connection, server));
+afterAll(async () => {
+    tearDownServerAndDatabaseConnectionForJest(connection, server);
+});
 
 const setupLocalContainerAndServer = registrations => {
     // #region Local Supertest/Server Setup for the Describe-Block
@@ -92,9 +132,7 @@ const setupLocalContainerAndServer = registrations => {
         return localAgent;
     };
 
-    const afterAllTeardown = (done) => {
-        localServer.close(done);
-    };
+    const afterAllTeardown = (done) => localServer.close(done);
     // #endregion
 
     return { beforeAllSetup, afterAllTeardown };
@@ -278,6 +316,49 @@ describe('User Login', () => {
         expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
     });
 
+    test('Avatar paths should be formatted for a user that logs in correctly and does have an uploaded avatar', async () => {
+         // Assert HTTP Response Status 200 OK.
+         const response = await agent
+         .post(ROUTE)
+         .send({
+             credentials: {
+                 email: userTwo.userTwoBody.email,
+                 password: userTwo.passwordPlain
+             }
+         })
+         .expect(200);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userTwo.userTwoBody._id);
+
+        // Remove the timestamp and version from the user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userTwo.userTwoBody,
+            _id: userTwo.userTwoBody._id.toString(),
+            password: userTwo.passwordHashed,
+            tokens: expect.any(Array),
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg`,
+                small: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg`,
+                large: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg`,
+            }
+        };
+
+        // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({
+            user: expect.any(Object),
+            token: cleanUser.tokens[1].token
+        });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
     test('Should not login an nonexistent user', async () => {
         // The fake credentials.
         const credentials = {
@@ -419,6 +500,38 @@ describe('Read User Profile', () => {
         });
     });
 
+    test('Avatar paths should be formatted for a user with a valid Bearer Token that does have an uploaded avatar', async () => {
+        // Assert HTTP Response Status 200 OK.
+            const response = await agent
+            .get(ROUTE)
+            .set('Authorization', `Bearer ${userTwo.userTwoBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userTwo.userTwoBody,
+            _id: userTwo.userTwoBody._id.toString(),
+            password: userTwo.passwordHashed,
+            tokens: expect.any(Array),
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg`,
+                small: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg`,
+                large: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg`,
+            }
+        };
+
+        // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({
+            user: expect.any(Object)
+        });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
     test('Should not return profile information for an unauthenticated user', async () => {
         // Assert HTTP Response Status 401 Unauthorized
         const response = await agent
@@ -486,6 +599,75 @@ describe('Update User Profile', () => {
         delete expectedUser.tokens;
         delete expectedUser.password;
         expect(response.body).toEqual({ user: expect.any(Object) });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
+    test('Avatar paths should be formatted for a user with a valid Bearer Token that does have an uploaded avatar if no updates are provided', async () => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .patch(ROUTE)
+            .set('Authorization', `Bearer ${userTwo.userTwoBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userTwo.userTwoBody,
+            _id: userTwo.userTwoBody._id.toString(),
+            password: userTwo.passwordHashed,
+            tokens: expect.any(Array),
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg`,
+                small: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg`,
+                large: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg`,
+            }
+        };
+
+        // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({
+            user: expect.any(Object)
+        });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+    });
+
+    test('Avatar paths should be formatted for a user with a valid Bearer Token that does have an uploaded avatar if valid updates are provided.', async () => {
+        // Assert HTTP Response Status 200 OK.
+            const response = await agent
+            .patch(ROUTE)
+            .set('Authorization', `Bearer ${userTwo.userTwoBody.tokens[0].token}`)
+            .send({
+                updates: {
+                    name: 'Grant'
+                }
+            })
+            .expect(200);
+
+        // The expected result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userTwo.userTwoBody,
+            name: 'Grant',
+            _id: userTwo.userTwoBody._id.toString(),
+            password: userTwo.passwordHashed,
+            tokens: expect.any(Array),
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg`,
+                small: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg`,
+                large: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg`,
+            }
+        };
+
+        // Assert that the response contains the correct data.
+        // It's safe mutate the expectedUser object here.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({
+            user: expect.any(Object)
+        });
         expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
     });
 
@@ -577,4 +759,307 @@ describe('Update User Profile', () => {
             error: new AuthenticationError().message
         });        
     }); 
+});
+
+// DELETE /api/v1/users/me
+describe('Delete User', () => {
+    const ROUTE = '/api/v1/users/me';
+    test('Should correctly delete a user with a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 200 OK
+        await agent
+            .delete(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Assert that the user no longer exists within the database.
+        const user = await User.findById(userOne.userOneBody._id);
+        expect(user).toBe(null);
+    });
+
+    test('Should not delete a user if the requester does not have a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 400 Bad Request.
+        const response = await agent
+            .delete(ROUTE)
+            .send()
+            .expect(401);
+
+        // Assert that the response contains the correct error.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+    });
+});
+
+describe('User Avatar', () => {
+    const ROUTE = '/api/v1/users/me/avatar';
+
+    beforeEach(async () => configureBucket());
+
+
+    const path = `${__dirname}/../../../../../tmp/buckets/${appConfig.cloudStorage.buckets.getMainBucket()}/users/${userOne.userOneBody._id}/profile/avatar`;
+    const imageData = [
+        { nameSuffix: 'original', width: sizeOf(avatar.buffer).width, height: sizeOf(avatar.buffer).height }, 
+        { nameSuffix: 'small', width: 50, height: 50 }, 
+        { nameSuffix: 'large', width: 100, height: 100 }
+    ];
+
+    // POST /api/v1/users/me
+    test('Should upload a user avatar, mutate the DB, and return the correct data for a user with a valid Bearer Token', async (done) => {
+        // Assert HTTP Response Status 201 Created
+        const response = await agent
+            .post(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .attach('avatar', `${__dirname}/../../../fixtures/files/images/avatar/avatar.jpg`)
+            .expect(201);
+
+        // Assert that the correct images have been created.
+        imageData.forEach(({ nameSuffix, width, height }) => {
+            fs.readFile(`${path}/avatar_${nameSuffix}.jpg`, (err, data) => {
+                if (err) throw err;
+                
+                // Assert that the buffers have the correct size and represent the correct type.
+                expect(data).toEqual(expect.any(Buffer));
+                expect(sizeOf(data)).toEqual({ width, height, type: 'jpg' });
+
+                if (nameSuffix === imageData[imageData.length - 1].nameSuffix) done();
+            });
+        });
+
+        // Attempt to find the user object in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove the version and timestamp fields from the database result object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        const avatarPathPrefix = `users/${userOne.userOneBody._id}/profile/avatar`;
+
+        // The expected database result object.
+        const expectedUser = {
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: [{
+                _id: expect.any(String),
+                token: userOne.userOneBody.tokens[0].token
+            }],
+            avatarPaths: {
+                original: `${avatarPathPrefix}/avatar_original.jpg`,
+                small: `${avatarPathPrefix}/avatar_small.jpg`,
+                large: `${avatarPathPrefix}/avatar_large.jpg`,
+            }
+        };
+
+        // Assert that the user contains the correct fields.
+        expect(cleanUser).toEqual(expectedUser);
+
+        // Assert that the response body contains the correct data.
+        delete expectedUser.password;
+        delete expectedUser.tokens;
+        expect(response.body).toEqual({ user: expect.any(Object) });
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...expectedUser,
+            avatarPaths: Object.assign({}, ...Object.keys(expectedUser.avatarPaths)
+                .map(key => ({ [key]: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths[key]}` })))
+        });
+    });
+
+    test('Should use default anonymous avatar if no image is provided.', async () => {
+        // Assert HTTP Response Status 201 Created.
+        const response = await agent
+            .post(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .expect(201);
+
+        // Assert that the AWS Spy for upload was never called.
+        expect(spys.upload).toHaveBeenCalledTimes(0);
+
+        // Attempt to find the user in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove timestamp and version fields from user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // The expected result.
+        const expected = {
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: [{
+                _id: expect.any(String),
+                token: userOne.userOneBody.tokens[0].token
+            }],
+            avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
+        };
+
+        // Assert that the user contains the correct data.
+        expect(cleanUser).toEqual(expected);
+
+        // Assert `user` is the only object on `response.body`.
+        expect(response.body).toEqual({ user: expect.any(Object) });
+
+        // Assert that the response body contains the correct data.
+        delete expected.password;
+        delete expected.tokens;
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...expected,
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/original`,
+                small: `${ABSOLUTE_URL_PREFIX}/small`,
+                large: `${ABSOLUTE_URL_PREFIX}/large`
+            }
+        });
+    });
+
+    // TODO: POST /me/avatar 400 Bad Request
+    test('Should not update avatar if bad data is supplied despite a valid Bearer Token', async () => {
+        // Assert HTTP Response Status 400 Bad Request.
+        const response = await agent
+            .post(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .attach('avatar', `${__dirname}/../../../fixtures/files/webrtc_internals_dump.txt`)
+            .expect(400);
+
+        // Assert that the AWS Spy for upload was never called.
+        expect(spys.upload).toHaveBeenCalledTimes(0);
+
+        // Attempt to find User One in the database.
+        const user = await User.findById(userOne.userOneBody._id);
+
+        // Remove timestamp and version fields from the user object.
+        const cleanUser = cleanDatabaseResultObject(user.toJSON());
+
+        // The expected result.
+        const expected = {
+            ...getDefaultProperties(),
+            ...userOne.userOneBody,
+            _id: userOne.userOneBody._id.toString(),
+            tokens: [{
+                _id: expect.any(String),
+                token: userOne.userOneBody.tokens[0].token
+            }]
+        };
+
+        // Assert that the user contains the correct data.
+        expect(cleanUser).toEqual(expected);
+
+        // Assert that the response body contains the correct data.
+        expect(response.body).toEqual({
+            error: 'A field is missing or invalid, or updates are invalid, or a file is invalid! The action can not be completed with the data or request body provided.'
+        });
+    });
+
+    test('Should not upload an avatar for a user with an invalid Bearer Token', async () => {
+        // Assert HTTP Response Status 401 Unauthorized.
+        const response = await agent
+            .post(ROUTE)
+            .expect(401);
+
+        expect(spys.upload).toHaveBeenCalledTimes(0);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+    });
+
+    // DELETE /api/v1/users/me/avatar
+    test('Should delete an avatar for a user with a valid Bearer Token if they have an avatar uploaded', async (done) => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .delete(ROUTE)
+            .set('Authorization', `Bearer ${userTwo.userTwoBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({});
+
+        // Assert that no avatar was uploaded.
+        imageData.forEach(({ nameSuffix }) => {
+            fs.readFile(`${path}/avatar_${nameSuffix}`, (err, data) => {
+                expect(err).not.toBe(undefined);
+                if (nameSuffix === imageData[imageData.length - 1].nameSuffix) done();
+            });
+        });
+    });
+
+    test('Should not delete an avatar if a user does not have an uploaded avatar', async () => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .delete(ROUTE)
+            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
+            .send()
+            .expect(200);
+
+        // Assert that the spy was not called.
+        expect(spys.deleteObject).toHaveBeenCalledTimes(0);
+
+        // Assert that the response contains no data.
+        expect(response.body).toEqual({});
+    });
+
+    // DELETE /api/v1/users/me/avatar
+    test('Should not delete an avatar for a user without a Bearer Token if they have an avatar uploaded', async () => {
+        // Assert HTTP Response Status 401 Unauthorized.
+        const response = await agent
+            .delete(ROUTE)
+            .send()
+            .expect(401);
+
+        // Assert that the response contains the correct data.
+        expect(response.body).toEqual({
+            error: new AuthenticationError().message
+        });
+
+        // Assert that no avatar was deleted.
+       expect(spys.deleteObject).toHaveBeenCalledTimes(0);
+    });
+
+    // GET /api/v1/users/:id/avatar
+    test('Avatar paths should be formatted for a user that does have an uploaded avatar', async () => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .get(`/api/v1/users/${userTwo.userTwoBody._id}/avatar`)
+            .send()
+            .expect(200);
+
+        expect(response.body).toEqual({
+            avatar: {
+                original: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg`,
+                small: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg`,
+                large: `${ABSOLUTE_URL_PREFIX}/users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg`,
+            }
+        });
+    });
+
+    // GET /api/v1/users/:id/avatar
+    test('Avatar paths should be default for a user that does not have an uploaded avatar', async () => {
+        // Assert HTTP Response Status 200 OK.
+        const response = await agent
+            .get(`/api/v1/users/${userOne.userOneBody._id}/avatar`)
+            .send()
+            .expect(200);
+
+        expect(response.body).toEqual({
+            avatar: {
+                original: `${ABSOLUTE_URL_PREFIX}/${appConfig.cloudStorage.avatars.getDefaultAvatarPaths().original}`,
+                small: `${ABSOLUTE_URL_PREFIX}/${appConfig.cloudStorage.avatars.getDefaultAvatarPaths().small}`,
+                large: `${ABSOLUTE_URL_PREFIX}/${appConfig.cloudStorage.avatars.getDefaultAvatarPaths().large}`,
+            }
+        });
+    });
+
+    // GET /api/v1/users/:id/avatar
+    test('Should return 404 if no user by the specified ID exists.', async () => {
+        // Assert HTTP Response Status 404 Resource Not Found.
+        const response = await agent
+            .get('/api/v1/users/anything/avatar')
+            .send()
+            .expect(404);
+
+        expect(response.body).toEqual({
+            error: new ResourceNotFoundError().message
+        });
+    });
 });

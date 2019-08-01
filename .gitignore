@@ -1,3 +1,5 @@
 node_modules
 .vscode/
-config/
+/config
+/tmp/
+coverage/
