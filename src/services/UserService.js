@@ -393,7 +393,7 @@ class UserService extends EventEmitter {
 
             // We don't want to delete a binary object from cloud storage if that object does not exist.
             if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
-                return UserService._transformUser(user);
+                return this._transformUser(user);
             }
 
             // Remove all avatar images for the current user from cloud storage.
@@ -430,7 +430,7 @@ class UserService extends EventEmitter {
 
             return user.avatarPaths;
         } catch (err) {
-            throw err;
+            throw new ResourceNotFoundError();
         }
     }
 
@@ -497,7 +497,12 @@ class UserService extends EventEmitter {
 
         // Map through each key and generate the absolute URI based on the relative path corresponding to the key.
         Object.keys(relativeAvatarPaths).forEach(key => {
-            mappedAvatarPaths[key] = this.fileStorageAdapter.getAbsoluteFileURI(relativeAvatarPaths[key]);
+            mappedAvatarPaths[key] = this.fileStorageAdapter.getAbsoluteFileURI(relativeAvatarPaths[key] !== 'no-profile' ? ( 
+                relativeAvatarPaths[key] 
+            ) : ( 
+                this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths()[key])
+            // eslint-disable-next-line function-paren-newline
+            );
         });
 
         return mappedAvatarPaths;
