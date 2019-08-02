@@ -19,8 +19,9 @@ const handleErrors = require('./api/middleware/handle-errors');
 // Delegate errors in async endpoints to be handled by middleware.
 require('express-async-errors');
 
-// Routes - User
+// Routes - User & Task
 const userRoutes = require('./api/routes/user');
+const taskRoutes = require('./api/routes/task');
 
 // Application Factory to ease Dependency Injection in tests.
 module.exports = container => {
@@ -35,8 +36,9 @@ module.exports = container => {
     // Awilix Dependency Injection.
     app.use(scopePerRequest(container));
 
-    // Routes - Users
+    // Routes - Users & Task
     app.use('/api/v1/users', userRoutes);
+    app.use('/api/v1/tasks', taskRoutes);
 
     // This needs to come last to handle errors.
     app.use(handleErrors);

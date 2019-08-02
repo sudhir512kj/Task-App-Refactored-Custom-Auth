@@ -17,14 +17,15 @@
  */
 
 const EventEmitter = require('events');
-const { ValidationError, AuthenticationError, ResourceNotFoundError } = require('./../custom-exceptions/index');
+const { ValidationError, ResourceNotFoundError } = require('./../custom-exceptions/index');
 
 class TaskService extends EventEmitter {
-    constructor({ taskRepository }) {
+    constructor({ taskRepository, context }) {
          // Extending EventEmitter, call the super class.
          super();
          // Dependency Injection
          this.taskRepository = taskRepository;
+         this.context = context;
     }
 
     /*
@@ -44,7 +45,7 @@ class TaskService extends EventEmitter {
             if (!taskData) throw new ValidationError();
 
             // Call the repository to create a new task.
-            return await this.taskRepository.create(taskData);
+            return await this.taskRepository.create({ ...taskData, owner: this.context.user._id });
         } catch (err) {
             throw err;
         }
@@ -70,13 +71,16 @@ class TaskService extends EventEmitter {
 
             if (query) {
                 // Match by completed if there is an existing completed value.
-                if (query.completed) {
+                if (typeof query.completed !== 'undefined') {
                     match.completed = query.completed;
                 }
             }
-    
+
             // Call the repository to attain all tasks by the provided options.
-            return await this.taskRepository.readTasksByQuery(match, options);
+            return await this.taskRepository.readTasksByQuery({
+                owner: this.context.user._id,
+                ...match
+            }, options);
         } catch (err) {
             throw err;
         }
@@ -96,7 +100,7 @@ class TaskService extends EventEmitter {
      */
     async retrieveTaskById(id) {
         try {
-            const task = this.taskRepository.readById(id);
+            const task = await this.taskRepository.readById(id);
 
             if (!task) throw new ResourceNotFoundError();
 
@@ -125,7 +129,11 @@ class TaskService extends EventEmitter {
             // eslint-disable-next-line no-return-assign
             updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
 
-            return await this.taskRepository.updateById(id, validUpdates);
+            const updatedTask = await this.taskRepository.updateById(id, validUpdates);
+
+            if (!updatedTask) throw new ResourceNotFoundError();
+
+            return updatedTask;
         } catch (err) {
             throw err;
         }
@@ -133,9 +141,10 @@ class TaskService extends EventEmitter {
 
     async deleteTaskById(id) {
         try {
-            await this.userRepository.deleteById(id);
+            await this.taskRepository.deleteById(id);
         } catch (err) {
             throw err;
         }
     }
 }
+module.exports = TaskService;

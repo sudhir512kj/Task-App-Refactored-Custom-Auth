@@ -26,7 +26,7 @@ const router = new express.Router();
  * 1.) Call the TaskService to create a new task.
  * 2.) Return HTTP 201 with the new task.
  */
-router.post('/tasks', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
+router.post('/', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
     const task = await taskService.createNewTask(req.body.task);
     return res.status(201).send({ task });
 }));
@@ -41,7 +41,7 @@ router.post('/tasks', stripBearerToken, verifyAuth, inject(({ taskService }) => 
  * 3.) Call the Service passing into it query and options data.
  * 4.) Return the new tasks to the client.
  */
-router.get('/tasks', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
+router.get('/', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
     const { completed, sortBy, limit, skip } = req.query;
 
     // Temporary sort object.
@@ -55,7 +55,7 @@ router.get('/tasks', stripBearerToken, verifyAuth, inject(({ taskService }) => a
 
     // Attain all tasks based on query data.
     const tasks = await taskService.retrieveTasksByQueryForUser({ 
-        completed: completed === 'true', 
+        completed: typeof completed !== 'undefined' ? completed === 'true' : undefined, 
     }, {
         limit: parseInt(limit, 10), 
         skip: parseInt(skip, 10),
@@ -71,7 +71,7 @@ router.get('/tasks', stripBearerToken, verifyAuth, inject(({ taskService }) => a
  * 1.) Call the Service to find a task by its ID.
  * 2.) Respond with the task to the client.
  */
-router.get('/tasks/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
+router.get('/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
     const task = await taskService.retrieveTaskById(req.params.id);
     return res.send({ task });
 }));
@@ -82,8 +82,8 @@ router.get('/tasks/:id', stripBearerToken, verifyAuth, inject(({ taskService }) 
  * 1.) Call the Service to update a task via an updates object.
  * 2.) Respond with the updated task.
  */
-router.patch('/tasks/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
-    const updatedTask = await taskService.updateUser(req.body.updates);
+router.patch('/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
+    const updatedTask = await taskService.updateTaskById(req.params.id, req.body.updates);
     return res.send({ user: updatedTask });
 }));
 
@@ -92,7 +92,9 @@ router.patch('/tasks/:id', stripBearerToken, verifyAuth, inject(({ taskService }
  * Description:
  * 1.) Call the Service to delete a task by its ID.
  */
-router.delete('/tasks/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
-    await this.taskService.deleteTaskById(req.params.id);
+router.delete('/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
+    await taskService.deleteTaskById(req.params.id);
     return res.send();
 }));
+
+module.exports = router;
