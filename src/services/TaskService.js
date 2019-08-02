@@ -77,7 +77,7 @@ class TaskService extends EventEmitter {
             }
 
             // Call the repository to attain all tasks by the provided options.
-            return await this.taskRepository.readTasksByQuery({
+            return await this.taskRepository.readByQuery({
                 owner: this.context.user._id,
                 ...match
             }, options);
@@ -100,11 +100,11 @@ class TaskService extends EventEmitter {
      */
     async retrieveTaskById(id) {
         try {
-            const task = await this.taskRepository.readById(id);
+            const tasks = await this.taskRepository.readByIdWithQuery(id, { owner: this.context.user._id });
 
-            if (!task) throw new ResourceNotFoundError();
+            if (tasks.length === 0) throw new ResourceNotFoundError();
 
-            return task;
+            return tasks[0];
         } catch (err) {
             throw err;
         }
@@ -129,7 +129,9 @@ class TaskService extends EventEmitter {
             // eslint-disable-next-line no-return-assign
             updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
 
-            const updatedTask = await this.taskRepository.updateById(id, validUpdates);
+            const updatedTask = await this.taskRepository.updateByIdWithQuery(id, {
+                owner: this.context.user._id,
+            }, validUpdates);
 
             if (!updatedTask) throw new ResourceNotFoundError();
 
@@ -141,7 +143,7 @@ class TaskService extends EventEmitter {
 
     async deleteTaskById(id) {
         try {
-            await this.taskRepository.deleteById(id);
+            await this.taskRepository.deleteByIdWithQuery(id, { owner: this.context.user._id });
         } catch (err) {
             throw err;
         }

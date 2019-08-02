@@ -20,28 +20,28 @@ class TaskRepository {
         }
     }
 
-    // eslint-disable-next-line class-methods-use-this
-    async readTasksByQuery(query, options) {
+    async readByIdWithQuery(id, query, options = {}) {
         try {
-            return await this.Task.find(query, null, options);
+            const tasks = await this.Task.find({ _id: id, ...query }, null, options);
+            return tasks.map(task => task ? task.toJSON() : null);
         } catch (err) {
             throw err;
         }
     }
 
-    async readById(id) {
+    async readByQuery(query, options = {}) {
         try {
-            const task = await this.Task.findById(id);
-            return task ? task.toJSON() : null;
+            const tasks = await this.Task.find(query, null, options);
+            return tasks.map(task => task ? task.toJSON() : null);
         } catch (err) {
             throw err;
         }
     }
 
-    async updateById(id, updates) {
+    async updateByIdWithQuery(id, query, updates) {
         try {
             // Update and attempt to save. MongoDB won't validate if runValidators is not set to true.
-            const task = await this.Task.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+            const task = await this.Task.findOneAndUpdate({ _id: id, ...query }, updates, { new: true, runValidators: true });
             return task ? task.toJSON() : null;
         } catch (err) {
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
@@ -55,10 +55,10 @@ class TaskRepository {
      * @returns  {Object} The JSON version of the found task.
      * @memberof UserRepository
      */
-    async deleteById(id) {
+    async deleteByIdWithQuery(id, query) {
         try {
             // Call the task model.
-            const task = await this.Task.findById(id);
+            const task = await this.Task.findOne({ _id: id, ...query });
 
             // Throwing if there is no user.
             if (!task) throw new ResourceNotFoundError();

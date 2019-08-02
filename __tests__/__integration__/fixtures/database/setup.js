@@ -12,7 +12,9 @@ const bcrypt = require('bcrypt');
 const sharp = require('sharp');
 const awsMock = require('mock-aws-s3');
 const fs = require('fs-extra');
+
 const User = require('./../../../../src/models/user');
+const Task = require('./../../../../src/models/task');
 
 const appConfig = require('./../../../../src/config/application/config');
 
@@ -59,6 +61,31 @@ const userTwoBody = {
     }]
 };
 
+/* -------------------- Fixture Data - Tasks    -------------------- */
+const taskOne = {
+    _id: new mongoose.Types.ObjectId(),
+    description: 'First task',
+    completed: false,
+    owner: userOneID
+};
+
+// Tasks - Task Two
+const taskTwo = {
+    _id: new mongoose.Types.ObjectId(),
+    description: 'Second task',
+    completed: true,
+    owner: userOneID
+};
+
+
+// Tasks - Task Three
+const taskThree = {
+    _id: new mongoose.Types.ObjectId(),
+    description: 'Third task',
+    completed: true,
+    owner: userOneID
+};
+
 /* -------------------- Fixture Data - Files    -------------------- */
 const basePath = `${__dirname}/../../../../tmp/buckets`;
 const avatarBuffer = fs.readFileSync(`${__dirname}/../../fixtures/files/images/avatar/avatar.jpg`);
@@ -98,6 +125,11 @@ const configureDatabase = async () => {
     await User.deleteMany();
     await new User(userOneBody).save();
     await new User(userTwoBody).save();
+
+    await Task.deleteMany();
+    await new Task(taskOne).save();
+    await new Task(taskTwo).save();
+    await new Task(taskThree).save();
 };
 
 const configureBucket = async () => {
@@ -144,6 +176,10 @@ module.exports = {
     avatar: {
         buffer: avatarBuffer
     },
+    // Tasks
+    taskOne,
+    taskTwo,
+    taskThree,
     // Configuration
     configureDatabase,
     configureBucket,

@@ -1,5 +1,5 @@
 /*
- * File: user.js (__tests__/__integration__/src/api/routes/user.test.js)
+ * File: user.test.js (__tests__/__integration__/src/api/routes/user.test.js)
  *
  * Description: Houses Integration Test cases for the User Routes.
  * 
@@ -110,7 +110,7 @@ beforeEach(async () => {
 
 // Hooks - After All
 afterAll(async () => {
-    tearDownServerAndDatabaseConnectionForJest(connection, server);
+    await tearDownServerAndDatabaseConnectionForJest(connection, server);
 });
 
 const setupLocalContainerAndServer = registrations => {

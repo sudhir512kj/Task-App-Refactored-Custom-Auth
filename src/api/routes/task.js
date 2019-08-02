@@ -84,7 +84,7 @@ router.get('/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => asy
  */
 router.patch('/:id', stripBearerToken, verifyAuth, inject(({ taskService }) => async (req, res) => {
     const updatedTask = await taskService.updateTaskById(req.params.id, req.body.updates);
-    return res.send({ user: updatedTask });
+    return res.send({ task: updatedTask });
 }));
 
 // POST /api/v1/tasks
