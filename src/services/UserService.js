@@ -64,7 +64,8 @@ class UserService extends EventEmitter {
      */
     async signUpNewUser(userData) {
         try {
-            if (!userData) throw new ValidationError();
+            // Only checking password here because the Model will validate other properties.
+            if (!userData || !userData.password) throw new ValidationError();
 
             // Hash the user's password.
             const hashedPassword = await this.passwordService.hash(userData.password); 

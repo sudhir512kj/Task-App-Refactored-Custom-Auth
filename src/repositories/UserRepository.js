@@ -30,11 +30,12 @@ class UserRepository {
         try {
             // Create the new User Document and attempt to save.
             const user = new this.User(userData);
+
             await user.save();
 
             return user.toJSON();
         } catch (err) {
-
+            err.name = err.name !== undefined ? err.name : '';
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
@@ -53,6 +54,7 @@ class UserRepository {
             const user = await this.User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
             return user.toJSON();
         } catch (err) {
+            err.name = err.name !== undefined ? err.name : '';
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
