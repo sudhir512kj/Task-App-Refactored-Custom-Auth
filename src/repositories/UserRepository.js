@@ -35,7 +35,7 @@ class UserRepository {
 
             return user.toJSON();
         } catch (err) {
-            err.name = err.name !== undefined ? err.name : '';
+            if (!err.name) throw err;
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
@@ -54,7 +54,7 @@ class UserRepository {
             const user = await this.User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
             return user.toJSON();
         } catch (err) {
-            err.name = err.name !== undefined ? err.name : '';
+            if (!err.name) throw err;
             throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
