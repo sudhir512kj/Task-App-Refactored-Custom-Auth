@@ -41,14 +41,10 @@ class TaskService extends EventEmitter {
      * @memberof TaskService
      */
     async createNewTask(taskData) {
-        try {
-            if (!taskData) throw new ValidationError();
+        if (!taskData) throw new ValidationError();
 
-            // Call the repository to create a new task.
-            return await this.taskRepository.create({ ...taskData, owner: this.context.user._id });
-        } catch (err) {
-            throw err;
-        }
+        // Call the repository to create a new task.
+        return this.taskRepository.create({ ...taskData, owner: this.context.user._id });
     }
 
     /*
@@ -65,25 +61,21 @@ class TaskService extends EventEmitter {
      * @memberof TaskService
      */
     async retrieveTasksByQueryForUser(query, options) {
-        try {
-            // A temporary object of match constraints.
-            const match = {};
+        // A temporary object of match constraints.
+        const match = {};
 
-            if (query) {
-                // Match by completed if there is an existing completed value.
-                if (typeof query.completed !== 'undefined') {
-                    match.completed = query.completed;
-                }
+        if (query) {
+            // Match by completed if there is an existing completed value.
+            if (typeof query.completed !== 'undefined') {
+                match.completed = query.completed;
             }
-
-            // Call the repository to attain all tasks by the provided options.
-            return await this.taskRepository.readByQuery({
-                owner: this.context.user._id,
-                ...match
-            }, options);
-        } catch (err) {
-            throw err;
         }
+
+        // Call the repository to attain all tasks by the provided options.
+        return this.taskRepository.readByQuery({
+            owner: this.context.user._id,
+            ...match
+        }, options);
     }
 
     /*
@@ -99,54 +91,42 @@ class TaskService extends EventEmitter {
      * @memberof TaskService
      */
     async retrieveTaskById(id) {
-        try {
-            const tasks = await this.taskRepository.readByIdWithQuery(id, { owner: this.context.user._id });
+        const tasks = await this.taskRepository.readByIdWithQuery(id, { owner: this.context.user._id });
 
-            if (tasks.length === 0) throw new ResourceNotFoundError();
+        if (tasks.length === 0) throw new ResourceNotFoundError();
 
-            return tasks[0];
-        } catch (err) {
-            throw err;
-        }
+        return tasks[0];
     }
 
     async updateTaskById(id, requestedUpdates = {}) {
-        try {
-            // Create an empty allowed updates object and enumerate `requestedUpdates` keys.
-            const validUpdates = {};
-            const updateKeys = Object.keys(requestedUpdates);
+        // Create an empty allowed updates object and enumerate `requestedUpdates` keys.
+        const validUpdates = {};
+        const updateKeys = Object.keys(requestedUpdates);
 
-            // Abort if no updates have been provided.
-            if (updateKeys.length === 0) throw new ValidationError();
-            
-            // Verify that the requested updates are valid.
-            const allowedUpdates = ['description', 'completed'];
-            const isValidOperation = updateKeys.every(update => allowedUpdates.includes(update));
+        // Abort if no updates have been provided.
+        if (updateKeys.length === 0) throw new ValidationError();
+        
+        // Verify that the requested updates are valid.
+        const allowedUpdates = ['description', 'completed'];
+        const isValidOperation = updateKeys.every(update => allowedUpdates.includes(update));
 
-            if (!isValidOperation) throw new ValidationError();
+        if (!isValidOperation) throw new ValidationError();
 
-            // Note: `validUpdates` could contain a plain-text password at this point. This is resolved below.
-            // eslint-disable-next-line no-return-assign
-            updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
+        // Note: `validUpdates` could contain a plain-text password at this point. This is resolved below.
+        // eslint-disable-next-line no-return-assign
+        updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
 
-            const updatedTask = await this.taskRepository.updateByIdWithQuery(id, {
-                owner: this.context.user._id,
-            }, validUpdates);
+        const updatedTask = await this.taskRepository.updateByIdWithQuery(id, {
+            owner: this.context.user._id,
+        }, validUpdates);
 
-            if (!updatedTask) throw new ResourceNotFoundError();
+        if (!updatedTask) throw new ResourceNotFoundError();
 
-            return updatedTask;
-        } catch (err) {
-            throw err;
-        }
+        return updatedTask;
     }
 
     async deleteTaskById(id) {
-        try {
-            await this.taskRepository.deleteByIdWithQuery(id, { owner: this.context.user._id });
-        } catch (err) {
-            throw err;
-        }
+        await this.taskRepository.deleteByIdWithQuery(id, { owner: this.context.user._id });
     }
 }
 module.exports = TaskService;

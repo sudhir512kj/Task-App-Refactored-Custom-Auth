@@ -119,37 +119,32 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async loginUser(email, password) {
-        try {
-            // The email and password is sort of important...
-            if (!email || !password) throw new ValidationError();
+        // The email and password is sort of important...
+        if (!email || !password) throw new ValidationError();
 
-            // Attempt to find the user by their email. If user is null, an AuthenticationError will be thrown below.
-            const user = await this.userRepository.readByQuery({ email }); 
+        // Attempt to find the user by their email. If user is null, an AuthenticationError will be thrown below.
+        const user = await this.userRepository.readByQuery({ email }); 
 
-            // Determine whether the user is authenticated by checking passwords and existence.
-            const isAuthenticated = user && user.password ? (
-                // Determine whether the hash of the provided password and the stored hash password match.
-                await this.passwordService.compare(password, user.password)
-            ) : false;
+        // Determine whether the user is authenticated by checking passwords and existence.
+        const isAuthenticated = user && user.password ? (
+            // Determine whether the hash of the provided password and the stored hash password match.
+            await this.passwordService.compare(password, user.password)
+        ) : false;
 
-            // Either the user could not be found or their hashed passwords don't match.
-            if (!isAuthenticated) throw new AuthenticationError();
-           
-            // Attain an authentication token for the user.
-            const token = this.authenticationService.generateAuthToken(user._id); 
+        // Either the user could not be found or their hashed passwords don't match.
+        if (!isAuthenticated) throw new AuthenticationError();
+        
+        // Attain an authentication token for the user.
+        const token = this.authenticationService.generateAuthToken(user._id); 
 
-            // Update the user in the database to save his/her token.
-            const userWithToken = await this.userRepository.updateTokensById(user._id, token);
+        // Update the user in the database to save his/her token.
+        const userWithToken = await this.userRepository.updateTokensById(user._id, token);
 
-            // The user is authorized.
-            return {
-                user: this._transformUser(userWithToken),
-                token
-            };
-        } catch (err) {
-            // Potential errors include an unknown error or an AuthenticationError.
-            throw err;
-        }
+        // The user is authorized.
+        return {
+            user: this._transformUser(userWithToken),
+            token
+        };
     }
 
     /*
@@ -164,12 +159,8 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async logoutUser(token) {
-        try {
-            // Remove the user's existing token from the database.
-            return this._transformUser(await this.userRepository.removeTokenById(this.context.user._id, token));
-        } catch (err) {
-            throw err;
-        }
+        // Remove the user's existing token from the database.
+        return this._transformUser(await this.userRepository.removeTokenById(this.context.user._id, token));
     }
 
     /*
@@ -182,12 +173,8 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async logoutUserAll() {
-        try {
-            // Remove all of the user's tokens from the database.
-            return this._transformUser(await this.userRepository.removeAllTokensById(this.context.user._id));
-        } catch (err) {
-            throw err;
-        }
+        // Remove all of the user's tokens from the database.
+        return this._transformUser(await this.userRepository.removeAllTokensById(this.context.user._id))
     }
 
     /*
@@ -204,17 +191,13 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async retrieveUserByQuery(query) {
-        try {
-            // Attempt to find the user by a query.
-            const user = await this.userRepository.readByQuery(query);
+        // Attempt to find the user by a query.
+        const user = await this.userRepository.readByQuery(query);
 
-            // Throw a ResourceNotFoundError if that user does not exist.
-            if (!user) throw new ResourceNotFoundError();
+        // Throw a ResourceNotFoundError if that user does not exist.
+        if (!user) throw new ResourceNotFoundError();
 
-            return this._transformUser(user);
-        } catch (err) {
-            throw err;
-        }
+        return this._transformUser(user);
     }
 
     /* 
@@ -237,33 +220,29 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async updateUser(requestedUpdates = {}) {
-        try {
-            // Create an empty allowed updates object and enumerate `requestedUpdates` keys.
-            const validUpdates = {};
-            const updateKeys = Object.keys(requestedUpdates);
+        // Create an empty allowed updates object and enumerate `requestedUpdates` keys.
+        const validUpdates = {};
+        const updateKeys = Object.keys(requestedUpdates);
 
-            // Abort if no updates have been provided.
-            if (updateKeys.length === 0) return this.context.user;
-            
-            // Verify that the requested updates are valid.
-            const allowedUpdates = ['name', 'email', 'password', 'age'];
-            const isValidOperation = updateKeys.every(update => allowedUpdates.includes(update));
+        // Abort if no updates have been provided.
+        if (updateKeys.length === 0) return this.context.user;
+        
+        // Verify that the requested updates are valid.
+        const allowedUpdates = ['name', 'email', 'password', 'age'];
+        const isValidOperation = updateKeys.every(update => allowedUpdates.includes(update));
 
-            if (!isValidOperation) throw new ValidationError();
+        if (!isValidOperation) throw new ValidationError();
 
-            // Note: `validUpdates` could contain a plain-text password at this point. This is resolved below.
-            // eslint-disable-next-line no-return-assign
-            updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
+        // Note: `validUpdates` could contain a plain-text password at this point. This is resolved below.
+        // eslint-disable-next-line no-return-assign
+        updateKeys.forEach(updateKey => validUpdates[updateKey] = requestedUpdates[updateKey]);
 
-            // If the user is updating their password, hash the password before saving it.
-            if (updateKeys.includes('password')) {
-                validUpdates.password = await this.passwordService.hash(requestedUpdates.password);
-            }
-
-            return this._transformUser(await this.userRepository.updateById(this.context.user._id, validUpdates));
-        } catch (err) {
-            throw err;
+        // If the user is updating their password, hash the password before saving it.
+        if (updateKeys.includes('password')) {
+            validUpdates.password = await this.passwordService.hash(requestedUpdates.password);
         }
+
+        return this._transformUser(await this.userRepository.updateById(this.context.user._id, validUpdates));
     }
 
     /*
@@ -278,14 +257,10 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async deleteUser() {
-        try {
-            // TODO: Delete Tasks.
-            // TODO: Send cancellation emails.
+        // TODO: Delete Tasks.
+        // TODO: Send cancellation emails.
 
-            return await this.userRepository.deleteById(this.context.user._id);
-        } catch (err) {
-            throw err;
-        }        
+        return this.userRepository.deleteById(this.context.user._id);     
     }
 
     /*
@@ -308,36 +283,33 @@ class UserService extends EventEmitter {
      */
     async uploadUserAvatar(avatarBuffer) {
         const { _id } = this.context.user;
-        try {
-            // In the event that the user decides not to upload an avatar image.
-            if (!avatarBuffer) {
-                // Using default avatar.
-                const updatedUser = await this.userRepository
-                    .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
-                
-                return this._transformUser(updatedUser);
-            }
-
-            /* An avatar image has been provided if we make it to here. */
-
-            // Upload and process the avatar image.
-            const result = await this.fileStorageService.processAndUploadAvatarImage(avatarBuffer, _id);
-
-            // Temporary object.
-            const avatarPaths = {};
-
-            // Map through the result array and add a new property to `avatarPaths` containing the relative key (path).
-            result.forEach(({ Key }) => {
-                avatarPaths[Key.substring(Key.lastIndexOf('_') + 1, Key.lastIndexOf('.'))] = Key;
-            });
-
-            // Attain the updated user after updating the avatar paths.
-            const updatedUser = await this.userRepository.updateAvatarById(_id, avatarPaths);
-
+        
+        // In the event that the user decides not to upload an avatar image.
+        if (!avatarBuffer) {
+            // Using default avatar.
+            const updatedUser = await this.userRepository
+                .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
+            
             return this._transformUser(updatedUser);
-        } catch (err) {
-            throw err;
         }
+
+        /* An avatar image has been provided if we make it to here. */
+
+        // Upload and process the avatar image.
+        const result = await this.fileStorageService.processAndUploadAvatarImage(avatarBuffer, _id);
+
+        // Temporary object.
+        const avatarPaths = {};
+
+        // Map through the result array and add a new property to `avatarPaths` containing the relative key (path).
+        result.forEach(({ Key }) => {
+            avatarPaths[Key.substring(Key.lastIndexOf('_') + 1, Key.lastIndexOf('.'))] = Key;
+        });
+
+        // Attain the updated user after updating the avatar paths.
+        const updatedUser = await this.userRepository.updateAvatarById(_id, avatarPaths);
+
+        return this._transformUser(updatedUser);
     }
 
     /*
@@ -354,25 +326,21 @@ class UserService extends EventEmitter {
      * @memberof UserService
      */
     async deleteUserAvatar() {
-        try {
-            const { user, user: { _id, avatarPaths } } = this.context;
-            const defaultAvatarPaths = this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths();
+        const { user, user: { _id, avatarPaths } } = this.context;
+        const defaultAvatarPaths = this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths();
 
-            // We don't want to delete a binary object from cloud storage if that object does not exist.
-            if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
-                return this._transformUser(user);
-            }
-
-            // Remove all avatar images for the current user from cloud storage.
-            await Promise.all(Object.keys(user.avatarPaths)
-                    .map(objKey => this.fileStorageService
-                        .deleteAvatarImage(this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey]))));
-
-            // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
-            return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));
-        } catch (err) {
-            throw err;
+        // We don't want to delete a binary object from cloud storage if that object does not exist.
+        if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
+            return this._transformUser(user);
         }
+
+        // Remove all avatar images for the current user from cloud storage.
+        await Promise.all(Object.keys(user.avatarPaths)
+                .map(objKey => this.fileStorageService
+                    .deleteAvatarImage(this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey]))));
+
+        // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
+        return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));
     }
 
     /*
