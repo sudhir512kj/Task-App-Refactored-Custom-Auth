@@ -73,10 +73,7 @@ router.post('/logoutAll', stripBearerToken, verifyAuth, inject(({ userService })
  * 1.) Call the UserService function to retrieve the logged in user.
  * 2.) Respond with HTTP 200 and the user object.
  */
-router.get('/me', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
-    const user = await userService.retrieveUserById(req.user._id);
-    return res.send({ user });
-}));
+router.get('/me', stripBearerToken, verifyAuth, inject(({ userService }) => (req, res) => res.send({ user: req.user })));
 
 // PATCH /api/v1/users/me
 /*

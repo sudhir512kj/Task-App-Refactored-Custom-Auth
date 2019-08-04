@@ -178,6 +178,7 @@ describe('User Sign Up', () => {
         const expectedUser = {
             ...getDefaultProperties(),
             ...userBody,
+            avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths(),
             _id: response.body.user._id,
             password: 'hashed-password',
         };
@@ -196,7 +197,11 @@ describe('User Sign Up', () => {
             user: expect.any(Object),
             token: tokens[0].token
         });
-        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...expectedUser,
+            avatarPaths: Object.assign({}, ...Object.keys(expectedUser.avatarPaths)
+                .map(key => ({ [key]: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths[key]}` })))
+        });
     });
 
     test('Should not sign up a user with invalid body data', async () => {

@@ -62,7 +62,7 @@ class UserService extends EventEmitter {
      * @returns  {Object} The successfully signed up user.
      * @memberof UserService
      */
-    async signUpNewUser(userData) {
+    async signUpNewUser(userData = {}) {
         try {
             // Only checking password here because the Model will validate other properties.
             if (!userData || !userData.password) throw new ValidationError();
@@ -73,6 +73,7 @@ class UserService extends EventEmitter {
             // Create a safe user object to store with no sensitive data in plain-text.
             const cleanUser = {
                 ...userData,
+                avatarPaths: this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths(),
                 password: hashedPassword
             };
 
@@ -94,7 +95,8 @@ class UserService extends EventEmitter {
             };
         } catch (err) {
             if (err.code === 11000) throw new ValidationError(null, 'The provided email address is already in use.');
-            throw err.name === 'ValidationError' ? new ValidationError(err) : new Error(err);
+            if (!err.name) throw err;
+            throw err.name === 'ValidationError' ? new ValidationError(err) : err;
         }
     }
 
@@ -190,42 +192,6 @@ class UserService extends EventEmitter {
 
     /*
      * Description:
-     * 1.) Destructure the user object off the context.
-     * 2.) If the signed in user is the target user, return the signed in user (safe) without making a network call.
-     * 3.) Otherwise, find the user from the Repository, make it safe, and return it (or throw a ResourceNotFoundError)
-     */
-    /**
-     * @description - Attempts to retrieve a user by their ID. If the requested user is the currently signed in user, then returns the current user without
-     *     making a network call to reduce response latency. Otherwise, requests the user, and makes the object safe before returning it.
-     *
-     * @param    {String} id The ID of the user.
-     * @returns  {Object} The safe user object.
-     * @memberof UserService
-     */
-    async retrieveUserById(id) {
-        try {
-            const { user: authenticatedUser } = this.context;
-
-            // Check if the requested user is the logged in user.
-            if (authenticatedUser !== null && authenticatedUser._id === id) {
-                // We don't need to make a network call and can return the user straight away.
-                return UserService._stripSensitiveData(authenticatedUser);
-            }
-
-            // Attempt to find the user in the database.
-            const user = await this.userRepository.readById(id);
-
-            // Throw a ResourceNotFoundError if that user does not exist.
-            if (!user) throw new ResourceNotFoundError();
-
-            return this._transformUser(user);
-        } catch (err) {
-            throw err;  
-        }
-    }    
-
-    /*
-     * Description:
      * 1.) Find the user in the database via query.
      * 2.) Throw an error if the user is null.
      * 3.) Return the safe user.
@@ -277,7 +243,7 @@ class UserService extends EventEmitter {
             const updateKeys = Object.keys(requestedUpdates);
 
             // Abort if no updates have been provided.
-            if (updateKeys.length === 0) return await this.retrieveUserById(this.context.user._id);
+            if (updateKeys.length === 0) return this.context.user;
             
             // Verify that the requested updates are valid.
             const allowedUpdates = ['name', 'email', 'password', 'age'];
@@ -316,7 +282,7 @@ class UserService extends EventEmitter {
             // TODO: Delete Tasks.
             // TODO: Send cancellation emails.
 
-            await this.userRepository.deleteById(this.context.user._id);
+            return await this.userRepository.deleteById(this.context.user._id);
         } catch (err) {
             throw err;
         }        

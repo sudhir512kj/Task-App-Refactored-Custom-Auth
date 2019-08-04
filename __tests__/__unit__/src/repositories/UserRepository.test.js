@@ -4,7 +4,6 @@
  * Description: Houses test cases related to the user repository.
  * 
  * Created by Jamie Corkhill on 08/02/2019 at 12:53 PM (Local), 05:53 PM (Zulu)
- * 
  */
 
 const UserRepository = require('../../../../src/repositories/UserRepository');
