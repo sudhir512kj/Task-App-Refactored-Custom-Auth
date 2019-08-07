@@ -7,6 +7,7 @@ A Node.js API utilizing clean architectural and design patterns with a custom JW
 - [Local Execution](#local-execution)
 - [Testing](#testing)
 - More to be added (PENDING).
+- [License](#license)
 
 ### Local Execution
 First and formost, install the required packages. All modules are defined locally within `package.json` to reduce conflicts between locally and globally installed packages.
@@ -67,3 +68,25 @@ Care has been taken to help prevent memory leaks and race conditions by running 
 Due to the complexities of Dependency Injection, database and `supertest` agent servers are occasionally spun up locally to a set of `test` functions within
 a `describe` block of Jest, permitting those tests and those tests only to operate on an Express Application that has specific dependencies mocked within
 the Dependency Injection Container (Awilix). Again, these local servers are disposed upon completion of use.
+### License
+The MIT License
+
+Copyright &copy; 2010-2019 Jamie Corkhill. 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
