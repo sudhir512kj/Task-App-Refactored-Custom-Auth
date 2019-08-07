@@ -435,9 +435,8 @@ class UserService extends EventEmitter {
             mappedAvatarPaths[key] = this.fileStorageAdapter.getAbsoluteFileURI(relativeAvatarPaths[key] !== 'no-profile' ? ( 
                 relativeAvatarPaths[key] 
             ) : ( 
-                this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths()[key])
-            // eslint-disable-next-line function-paren-newline
-            );
+                this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths()[key]
+            ), 'avatar');
         });
 
         return mappedAvatarPaths;

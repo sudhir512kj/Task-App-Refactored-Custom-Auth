@@ -19,6 +19,7 @@ const handleErrors = (err, req, res, next) => {
         // The err object already contains the status code and message we want to respond with.
         res.status(err.data.statusCode).send({ error: err.data.message });
     } else {
+        console.log(err)
         // This err is not one of ours.
         res.status(500).send({ error: 'An unexpected error occurred. Internal Server Error.' });
     }

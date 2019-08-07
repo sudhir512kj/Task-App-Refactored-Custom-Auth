@@ -30,8 +30,6 @@ const passwordService = new PasswordService();
 const fileStorageService = new FileStorageService();
 const fileStorageAdapter = new FileStorageAdapter();
 
-const ABSOLUTE_URL_PREFIX = `http://${appConfig.cloudStorage.buckets.getMainBucket()}.s3.us-west-2.amazonaws.com`;
-
 // Custom Exceptions
 const {
     ValidationError,
@@ -192,7 +190,7 @@ describe('#loginUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1'], ['path/to/img2'], ['path/to/img3']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar'], ['path/to/img2', 'avatar'], ['path/to/img3', 'avatar']]);
 
         // Assert that the return value contains the correct data.
         expect(user).toEqual({
@@ -241,7 +239,7 @@ describe('#loginUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
 
         // Assert that the return value contains the correct data.
         expect(user).toEqual({
@@ -303,7 +301,7 @@ describe('#logoutUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1'], ['path/to/img2'], ['path/to/img3']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar'], ['path/to/img2', 'avatar'], ['path/to/img3', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -333,7 +331,7 @@ describe('#logoutUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -374,7 +372,7 @@ describe('#logoutUserAll', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1'], ['path/to/img2'], ['path/to/img3']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar'], ['path/to/img2', 'avatar'], ['path/to/img3', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -404,7 +402,7 @@ describe('#logoutUserAll', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -446,7 +444,7 @@ describe('#retrieveUserByQuery', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1'], ['path/to/img2'], ['path/to/img3']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar'], ['path/to/img2', 'avatar'], ['path/to/img3', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -477,7 +475,7 @@ describe('#retrieveUserByQuery', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -531,7 +529,7 @@ describe('#updateUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -616,7 +614,7 @@ describe('#uploadUserAvatar', () => {
 
                 // Assert that getAbsoluteFileURISpy was called correctly.
                 expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-                expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1'], ['path/to/img2'], ['path/to/img3']]);
+                expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar'], ['path/to/img2', 'avatar'], ['path/to/img3', 'avatar']]);
 
         // Assert that the user contains the correct data.
         expect(user).toEqual({
@@ -646,7 +644,7 @@ describe('#uploadUserAvatar', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original'], ['small'], ['large']]);
+      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
                 
         // Assert that the user contains the correct data.
         expect(user).toEqual({
@@ -658,11 +656,13 @@ describe('#uploadUserAvatar', () => {
             }
         });
     });
-    // re-throw errors.
 });
 
 describe('#deleteUserAvatar', () => {
-
+    test('Should call the correct mock functions to delete an avatar from the storage and the database', async () => {
+        // Spys
+        
+    });
 });
 
 describe('#retrieveUserAvatarURLById', () => {

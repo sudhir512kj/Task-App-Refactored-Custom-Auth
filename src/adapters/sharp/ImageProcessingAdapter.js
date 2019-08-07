@@ -28,7 +28,7 @@ class ImageProcessingAdapter {
      * @returns The processed image as a buffer.
      * @memberof ImageProcessingAdapter
      */
-    async resizeImageAndConvert(originalBuffer, type, extOptions, size) {
+    async resizeImageAndConvertToJpeg(originalBuffer, type, extOptions, size) {
         try {
             return await this.sharp(originalBuffer)[type](extOptions).resize(size).toBuffer();
         } catch (err) {

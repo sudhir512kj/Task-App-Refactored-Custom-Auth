@@ -30,13 +30,13 @@ class FileProcessingService {
     async processAvatarImage(originalBuffer) {
         try {
             // The processed image array.
-            const images = [{ buffer: originalBuffer, type: 'original', ext: '.jpg', mimeType: 'image/jpeg' }];
+            const images = [{ buffer: originalBuffer, type: 'original', ext: 'jpg' }];
 
             // The sizes to which we'll be converting the images.
             const sizes = [{ w: 50, h: 50, type: 'small' }, { w: 100, h: 100, type: 'large' }];
 
             // Await all promises to settle.
-            const processedImages = await Promise.all(sizes.map(size => this.imageProcessingAdapter.resizeImageAndConvert(
+            const processedImages = await Promise.all(sizes.map(size => this.imageProcessingAdapter.resizeImageAndConvertToJpeg(
                 originalBuffer,
                 'jpeg',
                 { progressive: true, quality: 100 }, // extOptions
@@ -48,8 +48,7 @@ class FileProcessingService {
                 images.push({
                     buffer: imgBuffer,
                     type: sizes[index].type,
-                    ext: '.jpg',
-                    mimeType: 'image/jpeg'
+                    ext: 'jpg',
                 });
             });
 
