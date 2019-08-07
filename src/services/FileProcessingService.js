@@ -36,7 +36,7 @@ class FileProcessingService {
             const sizes = [{ w: 50, h: 50, type: 'small' }, { w: 100, h: 100, type: 'large' }];
 
             // Await all promises to settle.
-            const processedImages = await Promise.all(sizes.map(size => this.imageProcessingAdapter.resizeImageAndConvertToJpeg(
+            const processedImages = await Promise.all(sizes.map(size => this.imageProcessingAdapter.resizeImageAndConvertToType(
                 originalBuffer,
                 'jpeg',
                 { progressive: true, quality: 100 }, // extOptions

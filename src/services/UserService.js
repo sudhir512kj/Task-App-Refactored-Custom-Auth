@@ -301,9 +301,9 @@ class UserService extends EventEmitter {
         // Temporary object.
         const avatarPaths = {};
 
-        // Map through the result array and add a new property to `avatarPaths` containing the relative key (path).
-        result.forEach(({ Key }) => {
-            avatarPaths[Key.substring(Key.lastIndexOf('_') + 1, Key.lastIndexOf('.'))] = Key;
+        // Map through the result array and add a new property to `avatarPaths` containing the object name (relative to bucket root).
+        result.forEach(objectName => {
+            avatarPaths[objectName.substring(objectName.lastIndexOf('_') + 1, objectName.lastIndexOf('.'))] = objectName;
         });
 
         // Attain the updated user after updating the avatar paths.
@@ -336,8 +336,8 @@ class UserService extends EventEmitter {
 
         // Remove all avatar images for the current user from cloud storage.
         await Promise.all(Object.keys(user.avatarPaths)
-                .map(objKey => this.fileStorageService
-                    .deleteAvatarImage(this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey]))));
+                .map(objKey => this.fileStorageAdapter // The URIs on `user` are pre-formatted, so we have to convert.
+                    .deleteFile(`null:avatar:${this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey])}`)));
 
         // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
         return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));

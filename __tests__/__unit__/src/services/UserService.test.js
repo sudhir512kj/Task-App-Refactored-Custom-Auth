@@ -582,13 +582,9 @@ describe('#uploadUserAvatar', () => {
     // Return correct data.
     test('Should return the correct data for a non-null buffer', async () => {
         // Spys
-        const processAndUploadAvatarImageSpy = jest.spyOn(fileStorageService, 'processAndUploadAvatarImage').mockImplementationOnce(() => [{
-            Key: 'path/to/avatar_original.jpg'
-        }, {
-            Key: 'path/to/avatar_small.jpg'
-        }, {    
-            Key: 'path/to/avatar_large.jpg'
-        }]);
+        const processAndUploadAvatarImageSpy = jest.spyOn(fileStorageService, 'processAndUploadAvatarImage').mockImplementationOnce(() => [
+            'path/to/avatar_original.jpg', 'path/to/avatar_small.jpg', 'path/to/avatar_large.jpg'
+        ]);
         const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementationOnce(() => ({
             username: 'Jamie',
             avatarPaths: {
@@ -644,7 +640,7 @@ describe('#uploadUserAvatar', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar'], ['small', 'avatar'], ['large', 'avatar']]);
                 
         // Assert that the user contains the correct data.
         expect(user).toEqual({
