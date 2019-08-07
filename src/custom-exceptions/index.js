@@ -22,8 +22,6 @@
  * Created by Jamie Corkhill on 07/28/2019 at [unknown]
  */
 
-const { RESOLVER } = require('awilix');
-
 /**
  * @description The main parent class for all of our custom errors.
  *
@@ -55,7 +53,6 @@ class ApplicationError extends Error {
         return { custom: true, message: this.message }; // This is why message is global on `this`.
     }
 }
-ApplicationError[RESOLVER] = {}; // Allow the class to be auto registered by Awilix DIC despite being a named export.
 
 /**
  * @description Handles errors relating to Authentication with status code 401.
@@ -73,7 +70,6 @@ class AuthenticationError extends ApplicationError {
         this.data = { type: 'Auth', statusCode: 401, ...super.getGlobalProperties() };
     }
 }
-AuthenticationError[RESOLVER] = {}; // Allow the class to be auto registered by Awilix DIC despite being a named export.
 
 /**
  * @description Handles errors having to do with Validation with status code 400.
@@ -89,7 +85,6 @@ class ValidationError extends ApplicationError {
         this.data = { type: 'Validation', statusCode: 400, ...super.getGlobalProperties() };
     }
 }
-ValidationError[RESOLVER] = {}; // Allow the class to be auto registered by Awilix DIC despite being a named export.
 
 /**
  * @description Handles errors having to do with Resources Not Found with status code 404.
@@ -106,7 +101,6 @@ class ResourceNotFoundError extends ApplicationError {
         this.data = { type: 'Resource Not Found', statusCode: 404, ...super.getGlobalProperties() };
     }
 }
-ResourceNotFoundError[RESOLVER] = {}; // Allow the class to be auto registered by Awilix DIC despite being a named export.
 
 /**
  * @description Handles errors having to do with Resources Not Found with status code 404.
@@ -122,7 +116,6 @@ class ImageProcessingError extends ApplicationError {
         this.data = { type: 'Image Processing', statusCode: 500, ...super.getGlobalProperties() };
     }
 }
-ImageProcessingError[RESOLVER] = {}; // Allow the class to be auto registered by Awilix DIC despite being a named export.
 
 module.exports = {
     ApplicationError,
