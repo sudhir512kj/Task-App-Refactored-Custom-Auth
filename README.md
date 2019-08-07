@@ -71,7 +71,7 @@ the Dependency Injection Container (Awilix). Again, these local servers are disp
 ### License
 The MIT License
 
-Copyright &copy; 2010-2019 Jamie Corkhill. 
+Copyright &copy; 2019 Jamie Corkhill. 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
