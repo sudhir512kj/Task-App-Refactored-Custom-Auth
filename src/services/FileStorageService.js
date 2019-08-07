@@ -32,7 +32,12 @@ class FileStorageService {
 
         // Upload each image and return with the response array.
         return Promise.all(processedImages.map(({ buffer, type, ext }) => this.fileStorageAdapter
-            .uploadFile(`public:avatar:users/${uid}/profile/avatar/avatar_${type}.${ext}`, buffer)));
+            .uploadFile({
+                content: buffer,
+                filename: `users/${uid}/profile/avatar/avatar_${type}.${ext}`,
+                filePurpose: this.fileStorageAdapter.FilePurpose.AvatarImage,
+                fileAccess: this.fileStorageAdapter.FileAccess.Public
+            })));
     }
 }
 

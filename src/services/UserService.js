@@ -302,8 +302,8 @@ class UserService extends EventEmitter {
         const avatarPaths = {};
 
         // Map through the result array and add a new property to `avatarPaths` containing the object name (relative to bucket root).
-        result.forEach(objectName => {
-            avatarPaths[objectName.substring(objectName.lastIndexOf('_') + 1, objectName.lastIndexOf('.'))] = objectName;
+        result.forEach(({ filename }) => {
+            avatarPaths[filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'))] = filename;
         });
 
         // Attain the updated user after updating the avatar paths.
@@ -328,6 +328,7 @@ class UserService extends EventEmitter {
     async deleteUserAvatar() {
         const { user, user: { _id, avatarPaths } } = this.context;
         const defaultAvatarPaths = this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths();
+        const { FilePurpose } = this.fileStorageAdapter;
 
         // We don't want to delete a binary object from cloud storage if that object does not exist.
         if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
@@ -336,8 +337,7 @@ class UserService extends EventEmitter {
 
         // Remove all avatar images for the current user from cloud storage.
         await Promise.all(Object.keys(user.avatarPaths)
-                .map(objKey => this.fileStorageAdapter // The URIs on `user` are pre-formatted, so we have to convert.
-                    .deleteFile(`null:avatar:${this.fileStorageAdapter.getRelativeFileURI(avatarPaths[objKey])}`)));
+            .map(objKey => this.fileStorageAdapter.deleteFile(this.fileStorageAdapter.getFilename(avatarPaths[objKey]), FilePurpose.AvatarImage)));
 
         // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
         return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));
@@ -436,7 +436,7 @@ class UserService extends EventEmitter {
                 relativeAvatarPaths[key] 
             ) : ( 
                 this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths()[key]
-            ), 'avatar');
+            ), this.fileStorageAdapter.FilePurpose.AvatarImage);
         });
 
         return mappedAvatarPaths;

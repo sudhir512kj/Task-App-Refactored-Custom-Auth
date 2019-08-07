@@ -22,78 +22,55 @@ class FileStorageAdapter {
         this.partialFileURIPostfix = 's3.us-west-2.amazonaws.com';
 
         // Maps file types to AWS S3 Bucket. 
-        // This is equivalent to a type Dictionary<string, string[]> in C#, where the key is the bucket, and the value is a string array of corresponding
-        // file types that match that bucket.
+        // This is equivalent to a type Dictionary<string, FilePurpose[]> in C#, where the key is the bucket, and the value is a string array of corresponding
+        // file purposes that match that bucket.
         this.bucketMap = [{
             bucket: appConfig.cloudStorage.buckets.getMainBucket(),
-            types: ['avatar']
+            filePurposes: [
+                FileStorageAdapter.prototype.FilePurpose.AvatarImage, 
+                FileStorageAdapter.prototype.FilePurpose.TaskImage
+            ]
         }];
-    }
-
-    /**
-     * @description - Attempts to decode the provided namespace into its individual components, including an access modifier (public, private, null), a
-     *     file type (used to map to buckets), and an object name.
-     *
-     * @static
-     * @param    {String} namespace The provided namespace that represents the object.
-     * @returns  {Object} An object containing an access modifier, a file type, and an object name.
-     * @memberof FileStorageAdapter
-     */
-    static _decodeNamespace(namespace) {
-        // Attempt to match the namespace.
-        if (/^(public|private|null):([a-z]+):([\w/]+).([a-z]+)$/.test(namespace) === false) {
-            throw new Error(`${namespace} is not a valid namespace!`);
-        }
-
-        // Break down the namespace into its components.
-        const separator = ':';
-        const accessModifier = namespace.substring(0, namespace.indexOf(separator));
-        const fileType = namespace.substring(namespace.indexOf(separator) + 1, namespace.lastIndexOf(separator));
-        const objectName = namespace.substring(namespace.lastIndexOf(separator) + 1, namespace.length);
-
-        return {
-            accessModifier,
-            fileType,
-            objectName
-        };
     }
 
     /**
      * @description Provides a promisified interface for file upload to the cloud storage solution.
      *
-     * @param    {String} namespace Upload params.
-     * @param    {Buffer} buffer    The file buffer to upload.
-     * @returns  {String} Promise settling with the object name of the uploaded files.
+     * @param   {Object}                  uploadFileParams The required parameters to upload the BLOB to cloud storage.
+     * @returns {Promise<{Object}|Error>} A promise to the token.
      * @memberof FileStorageAdapter
      */
-    uploadFile(namespace, buffer) {
+    uploadFile(uploadFileParams) {
         // eslint-disable-next-line consistent-return
-        return new Promise((resolve, reject) => {
-            const { accessModifier, fileType, objectName } = FileStorageAdapter._decodeNamespace(namespace);
-            
-            const bucket = this._mapFileTypeToBucket(fileType);
+        return new Promise((resolve, reject) => {   
+            const { content, filename, filePurpose, fileAccess } = uploadFileParams;
 
-            // Attempt to attain the mimeType from the file.
-            const mimeType = mime.lookup(objectName);
+            // Attempt to ascertain the bucket from the provided file purpose.  
+            const bucket = this._mapFilePurposeToBucket(filePurpose);
+
+            // Attempt to ascertain the mimeType from the filename.
+            const mimeType = mime.lookup(filename);
 
             // mime.lookup will return false if a mime-type can't be identified.
-            if (mimeType === false) return reject(new Error(`${objectName} is not a valid object name!`));
+            if (!mimeType) return reject(new Error(`${filename} is not a valid file name!`));
 
             // bucket is undefined if the provided type could not be matched.
-            if (!bucket) return reject(new Error(`The type ${fileType} is not recognized as a valid file type!`));
-
-            if (accessModifier === 'null') return reject(new Error('The access modifier can not be null for file uploads!'));
+            if (!bucket) return reject(new Error(`The purpose ${filePurpose} is not recognized as a valid file purpose!`));
 
             // Performing the upload process.
             this.s3.upload({
-                Key: objectName,
-                Body: buffer,
-                ACL: (accessModifier === 'public' && 'public-read') || (accessModifier === 'private' && 'private'),
+                Key: filename,
+                Body: content,
+                ACL: fileAccess,
                 Bucket: bucket,
                 ContentType: mimeType
             }, (err, data) => {
                 if (err) return reject(err);
-                return resolve(data.Key);
+                return resolve({
+                    filename: data.Key,
+                    contentType: mimeType,
+                    content
+                });
             });          
         });
     }
@@ -101,25 +78,24 @@ class FileStorageAdapter {
     /**
      * @description Provides a promisified interface for file deletion from cloud storage.
      *
-     * @param    {String} namespace The namespace representing the file to delete.
+     * @param    {String} filename    The name of the file to delete.
+     * @param    {String} filePurpose The purpose associated with the file. 
      * @returns  Promise settling with data from the response to the cloud storage service.
      * @memberof FileStorageAdapter
      */
-    deleteFile(namespace) {
+    deleteFile(filename, filePurpose) {
         // eslint-disable-next-line consistent-return
         return new Promise((resolve, reject) => {
-            const { fileType, objectName } = FileStorageAdapter._decodeNamespace(namespace);
+            const bucket = this._mapFilePurposeToBucket(filePurpose);
 
-            const bucket = this._mapFileTypeToBucket(fileType);
-
-            if (!bucket) return reject(new Error(`The type ${fileType} is not recognized as a valid file type!`));
+            if (!bucket) return reject(new Error(`The purpose ${filePurpose} is not recognized as a valid file purpose!`));
 
             this.s3.deleteObject({
                 bucket,
-                Key: objectName
+                Key: filename
             }, (err, data) => {
                 if (err) return reject(err);
-                return resolve(data);
+                return resolve();
             });
         });
     }
@@ -127,16 +103,16 @@ class FileStorageAdapter {
     /**
      * @description - Internal private member that performs logic to map a file type to a bucket name.
      *
-     * @param    {String} type The type of file for which to map to a bucket name.
+     * @param    {String} filePurpose The purpose of the file for which to map to a bucket name.
      * @returns  {String} The name of the bucket.
      * @memberof FileStorageAdapter
      */
-    _mapFileTypeToBucket(type) {
+    _mapFilePurposeToBucket(filePurpose) {
         let bucket;
 
         // Attempt to map;
         this.bucketMap.forEach(obj => {
-            if (obj.types.includes(type)) {
+            if (obj.filePurposes.includes(filePurpose)) {
                 // eslint-disable-next-line prefer-destructuring
                 bucket = obj.bucket;
             }
@@ -148,29 +124,41 @@ class FileStorageAdapter {
     /**
      * @description Returns the absolute file URI based on its object name..
      *
-     * @param    {String} type The file type.
-     * @param    {String} objectName The full name of the file.
+     * @param    {String} filename    The name of the file for which to attain ab absolute URI.
+     * @param    {String} filePurpose The purpose associated with the file.
      * @returns  {String} The absolute file URI.
      * @memberof FileStorageAdapter
      */
-    getAbsoluteFileURI(objectName, type) {
-        const bucket = this._mapFileTypeToBucket(type);
+    getAbsoluteFileURI(filename, filePurpose) {
+        const bucket = this._mapFilePurposeToBucket(filePurpose);
 
-        if (!bucket) throw new Error(`Could not attain an absolute URI from file type ${type}!`);
+        if (!bucket) throw new Error(`Could not attain an absolute URI from file purpose ${filePurpose}!`);
 
-        return `http://${bucket}.${this.partialFileURIPostfix}/${objectName}`;
+        return `http://${bucket}.${this.partialFileURIPostfix}/${filename}`;
     }
 
     /**
      * @description Returns the relative file URI based on it's absolute URI.
      *
-     * @param   {String} absoluteURI The absolute URI (objectName within URL).
-     * @returns {String} The relative URI (object name).
+     * @param   {String} absoluteURI The absolute URI (filename within URL).
+     * @returns {String} The filename.
      * @memberof FileStorageAdapter
      */
-    getRelativeFileURI(absoluteURI) {
+    getFilename(absoluteURI) {
         return absoluteURI.replace(absoluteURI.substring(0, absoluteURI.lastIndexOf(this.partialFileURIPostfix) + this.partialFileURIPostfix.length), '');
     }
 }
+
+// Enumerations - File Access.
+FileStorageAdapter.prototype.FileAccess = Object.freeze({
+    Public: 'public-read',
+    Private: 'private'
+});
+
+// Enumerations - File Purpose.
+FileStorageAdapter.prototype.FilePurpose = Object.freeze({ // Don't really care for indices/values. Emulate zero based index.
+    AvatarImage: 'avatar-image', 
+    TaskImage: 'task-image'
+});
 
 module.exports = FileStorageAdapter;
