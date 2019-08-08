@@ -17,13 +17,13 @@ class FileProcessingService {
      * 1.) Define an array to hold the future-pending pending promises, as well as an array of size and type information.
      * 2.) Iterate through the size types and perform resize-and-convert processing.
      * 3.) Await all promises to settle. We could error-out here if something goes wrong.
-     * 4.) Iterate through the resolved promises (for which order is preserved), and push each new buffer onto the images array providing the type and extensions.
+     * 4.) Iterate through the resolved promises (for which order is preserved), and push each new stream onto the images array providing the type and extensions.
      * 5.) Return the array or catch error and re-throw.
      */
     /**
      * @description Processes avatar images as required for the application.
      *
-     * @param    {Buffer} originalBuffer The original un-altered buffer of the avatar as sent up by the user.
+     * @param    {Readable} stream The original un-altered stream of the avatar.
      * @returns  An array of processed image objects.
      * @memberof FileProcessingService
      */

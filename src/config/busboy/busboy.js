@@ -1,7 +1,7 @@
 /*
- * File: Configuration for Multer.
+ * File: Configuration for Busboy.
  *
- * Description: Houses configuration for Multer for multipart/form-data image uploads.
+ * Description: Houses configuration for Busboy for multipart/form-data image uploads.
  * 
  * Created by Jamie Corkhill 08/07/19 at 04:31 PM (Local), 07/05/2019 at 09:31 PM (Zulu)
  */

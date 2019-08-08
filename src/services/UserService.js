@@ -271,11 +271,9 @@ class UserService extends EventEmitter {
      * 4.) Update the database and return the safe user.
      */
     /**
-     * @description - Attempts to handle the processing and uploading of a user's avatar. If no avatar stream is provided (so `stream` is null), then
-     *     the database is updated to contain relative paths to the default avatar for all images from the cloud storage solution, which is an anonymous image.
-     *     If `stream` is non-null, then calls are made to handle processing and subsequently uploading the avatar image to the cloud storage solution.
-     *     After a successful upload to cloud storage, the database is updated to contain the relative paths that point to the storage location of the Blob in
-     *     storage. The safe user is then returned.
+     * @description - Attempts to handle the processing and uploading of a user's avatar. Calls are made to handle processing and subsequently uploading the avatar 
+     *     image to the cloud storage solution. After a successful upload to cloud storage, the database is updated to contain the relative paths that point to the 
+     *     storage location of the Blob in storage. The safe user is then returned.
      *
      * @param    {Readable} stream The stream of the user's avatar.
      * @returns  {Object} The safe user object.
@@ -284,15 +282,6 @@ class UserService extends EventEmitter {
     async uploadUserAvatar(stream) {
         const { _id } = this.context.user;
         
-        // // In the event that the user decides not to upload an avatar image.
-        // if (!stream) {
-        //     // Using default avatar.
-        //     const updatedUser = await this.userRepository
-        //         .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
-            
-        //     return this._transformUser(updatedUser);
-        // }
-
         // Upload and process the avatar image.
         const result = await this.fileStorageService.processAndUploadAvatarImage(stream, _id);
 
@@ -300,8 +289,9 @@ class UserService extends EventEmitter {
         const avatarPaths = {};
 
         // Map through the result array and add a new property to `avatarPaths` containing the object name (relative to bucket root).
-        result.forEach(({ filename }) => {
+        result.forEach(({ filename, content }) => {
             avatarPaths[filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'))] = filename;
+            content.destroy();
         });
 
         // Attain the updated user after updating the avatar paths.

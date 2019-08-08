@@ -21,8 +21,8 @@ class FileStorageService {
     /**
      * @description Performs processing and uploading of images.
      *
-     * @param    {Buffer} stream The avatar image stream from the client.
-     * @param    {String} uid    The user's ID (UID - User ID, or UUID - Unique User ID)
+     * @param    {Readable} stream The avatar image stream from the client.
+     * @param    {String}   uid    The user's ID (UID - User ID, or UUID - Unique User ID)
      * @returns  {Object} Result information from the FileStorageAdapter.
      * @memberof fileStorageService
      */

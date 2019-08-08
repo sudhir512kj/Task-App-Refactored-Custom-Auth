@@ -12,7 +12,6 @@
  * @class FileStorageAdapter
  */
 
-const stream = require('stream');
 const mime = require('mime-types');
 
 class FileStorageAdapter {
@@ -37,8 +36,12 @@ class FileStorageAdapter {
     /**
      * @description Provides a promisified interface for file upload to the cloud storage solution.
      *
-     * @param   {Object}                  uploadFileParams The required parameters to upload the BLOB to cloud storage.
-     * @returns {Promise<{Object}|Error>} A promise to the token.
+     * @param   uploadFileParams             The required parameters to upload the BLOB to cloud storage.
+     * @param   uploadFileParams.content     File stream.
+     * @param   uploadFileParams.filename    The full filename.
+     * @param   uploadFileParams.filePurpose Enumerated file purpose.
+     * @param   uploadFileParams.fileAccess  Enumerated file access control.
+     * @returns {Promise<Object|Error>}      A promise with the return result..
      * @memberof FileStorageAdapter
      */
     uploadFile(uploadFileParams) {
@@ -149,17 +152,5 @@ class FileStorageAdapter {
         return absoluteURI.replace(absoluteURI.substring(0, absoluteURI.lastIndexOf(this.partialFileURIPostfix) + this.partialFileURIPostfix.length), '');
     }
 }
-
-// Enumerations - File Access.
-FileStorageAdapter.prototype.FileAccess = Object.freeze({
-    Public: 'public-read',
-    Private: 'private'
-});
-
-// Enumerations - File Purpose.
-FileStorageAdapter.prototype.FilePurpose = Object.freeze({ // Don't really care for indices/values. Emulate zero based index.
-    AvatarImage: 'avatar-image', 
-    TaskImage: 'task-image'
-});
 
 module.exports = FileStorageAdapter;

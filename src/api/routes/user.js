@@ -104,16 +104,18 @@ router.delete('/me', stripBearerToken, verifyAuth, inject(({ userService }) => a
 // POST /users/me/avatar
 /*
  * Description:
- * 1.) Call the UserService to upload an avatar buffer. If there is no buffer available, pass `null` into the service.
- * 2.) Respond with the upload result from the cloud storage solution and HTTP Response Status 201 Created.
+ * 1.) Call the UserService to upload an avatar with its file stream. 
+ * 2.) If the stream is truncated (so the file is too large) respond with 413.
+ * 3.) Respond with the upload result from the cloud storage solution and HTTP Response Status 201 Created.
  */
 router.post('/me/avatar', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
-    const { file, filename } = await parseFile(req);
+    // Parse any files on `req`.
+    const { file } = await parseFile(req);
 
     // TODO: Check on this.
     if (file.truncated === true) return res.status(413).send();
 
-    // Perform avatar upload, if there is no buffer, provide `null` to the UserService.
+    // Perform avatar upload.
     const user = await userService.uploadUserAvatar(file || null);
     return res.status(201).send({ user });
 }));
