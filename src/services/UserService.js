@@ -17,6 +17,11 @@
  */
 
 const EventEmitter = require('events');
+
+// File Enumerations
+const { FilePurpose } = require('./../constants/file-storage');
+
+// Custom Exceptions
 const { ValidationError, AuthenticationError, ResourceNotFoundError } = require('./../custom-exceptions/index');
 
 // TODO: Data sanitization.
@@ -291,7 +296,7 @@ class UserService extends EventEmitter {
         // Map through the result array and add a new property to `avatarPaths` containing the object name (relative to bucket root).
         result.forEach(({ filename, content }) => {
             avatarPaths[filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'))] = filename;
-            content.destroy();
+            if (content) content.destroy();
         });
 
         // Attain the updated user after updating the avatar paths.
@@ -316,7 +321,6 @@ class UserService extends EventEmitter {
     async deleteUserAvatar() {
         const { user, user: { _id, avatarPaths } } = this.context;
         const defaultAvatarPaths = this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths();
-        const { FilePurpose } = this.fileStorageAdapter;
 
         // We don't want to delete a binary object from cloud storage if that object does not exist.
         if (avatarPaths.original === 'no-profile' || avatarPaths.original === defaultAvatarPaths.original) {
@@ -424,7 +428,7 @@ class UserService extends EventEmitter {
                 relativeAvatarPaths[key] 
             ) : ( 
                 this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths()[key]
-            ), this.fileStorageAdapter.FilePurpose.AvatarImage);
+            ), FilePurpose.AvatarImage);
         });
 
         return mappedAvatarPaths;

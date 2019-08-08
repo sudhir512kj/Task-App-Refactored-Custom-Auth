@@ -6,6 +6,9 @@
  * Created by Jamie Corkhill on 07/28/2019 at 10:32 PM (Local), 07/29/2019 at 03:32 AM (Zulu)
  */
 
+// File Enumerations
+const { FilePurpose, FileAccess } = require('./../constants/file-storage');
+
 class FileStorageService {
     constructor({ fileProcessingService, fileStorageAdapter }) {
         // Dependency Injection
@@ -35,8 +38,8 @@ class FileStorageService {
             .uploadFile({
                 content,
                 filename: `users/${uid}/profile/avatar/avatar_${type}.${ext}`,
-                filePurpose: this.fileStorageAdapter.FilePurpose.AvatarImage,
-                fileAccess: this.fileStorageAdapter.FileAccess.Public
+                filePurpose: FilePurpose.AvatarImage,
+                fileAccess: FileAccess.Public
             })));
     }
 }

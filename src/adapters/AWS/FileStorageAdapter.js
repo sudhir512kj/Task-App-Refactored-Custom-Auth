@@ -14,6 +14,9 @@
 
 const mime = require('mime-types');
 
+// File Enumerations
+const { FilePurpose } = require('./../../constants/file-storage');
+
 class FileStorageAdapter {
     constructor({ aws, appConfig }) {
         // Dependency Injection
@@ -27,8 +30,8 @@ class FileStorageAdapter {
         this.bucketMap = [{
             bucket: appConfig.cloudStorage.buckets.getMainBucket(),
             filePurposes: [
-                FileStorageAdapter.prototype.FilePurpose.AvatarImage, 
-                FileStorageAdapter.prototype.FilePurpose.TaskImage
+                FilePurpose.AvatarImage, 
+                FilePurpose.TaskImage
             ]
         }];
     }
