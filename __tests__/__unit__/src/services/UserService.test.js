@@ -579,7 +579,7 @@ describe('#deleteUser', () => {
 
 describe('#uploadUserAvatar', () => {
     // Return correct data.
-    test('Should return the correct data for a non-null buffer', async () => {
+    test('Should return the correct data for a given stream', async () => {
         // Spys
         const processAndUploadAvatarImageSpy = jest.spyOn(fileStorageService, 'processAndUploadAvatarImage').mockImplementationOnce(() => [
             { filename: 'path/to/avatar_original.jpg' }, 
@@ -597,11 +597,11 @@ describe('#uploadUserAvatar', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.uploadUserAvatar expects a buffer.
-        const user = await userService.uploadUserAvatar(Buffer.from('avatar'));
+        const user = await userService.uploadUserAvatar('stream');
 
         // Assert that the mocks were called correctly.
         expect(processAndUploadAvatarImageSpy).toHaveBeenCalledTimes(1);
-        expect(processAndUploadAvatarImageSpy).toHaveBeenCalledWith(Buffer.from('avatar'), '123');
+        expect(processAndUploadAvatarImageSpy).toHaveBeenCalledWith('stream', '123');
         expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(1);
         expect(updateAvatarByIdSpy).toHaveBeenCalledWith('123', {
             original: 'path/to/avatar_original.jpg',

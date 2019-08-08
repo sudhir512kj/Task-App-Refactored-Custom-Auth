@@ -49,7 +49,6 @@ const {
     cleanDatabaseResultObject,
     getDefaultProperties,
     // Fixture Data
-    testUser,
     userOne,
     userTwo,
     avatar
