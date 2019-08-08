@@ -27,26 +27,26 @@ class FileProcessingService {
      * @returns  An array of processed image objects.
      * @memberof FileProcessingService
      */
-    async processAvatarImage(originalBuffer) {
+    async processAvatarImage(stream) {
         try {
             // The processed image array.
-            const images = [{ buffer: originalBuffer, type: 'original', ext: 'jpg' }];
+            const images = [{ content: stream, type: 'original', ext: 'jpg' }];
 
             // The sizes to which we'll be converting the images.
             const sizes = [{ w: 50, h: 50, type: 'small' }, { w: 100, h: 100, type: 'large' }];
 
             // Await all promises to settle.
             const processedImages = await Promise.all(sizes.map(size => this.imageProcessingAdapter.resizeImageAndConvertToType(
-                originalBuffer,
+                stream,
                 'jpeg',
                 { progressive: true, quality: 100 }, // extOptions
                 { width: size.w, height: size.h } // size
             )));
 
             // Build the image objects from the resolved promises. Promise.all is strictly ordered.
-            processedImages.forEach((imgBuffer, index) => {
+            processedImages.forEach((processedStream, index) => {
                 images.push({
-                    buffer: imgBuffer,
+                    content: processedStream,
                     type: sizes[index].type,
                     ext: 'jpg',
                 });

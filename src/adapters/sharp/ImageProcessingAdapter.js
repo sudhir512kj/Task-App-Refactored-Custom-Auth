@@ -25,12 +25,12 @@ class ImageProcessingAdapter {
      * @param {*} type       The image type/extension to convert to.
      * @param {*} extOptions Options for the extension conversion.
      * @param {*} size       An object containing a size and width property.
-     * @returns The processed image as a buffer.
+     * @returns The processed image as a ReadableStream.
      * @memberof ImageProcessingAdapter
      */
-    async resizeImageAndConvertToType(originalBuffer, type, extOptions, size) {
+    async resizeImageAndConvertToType(stream, type, extOptions, size) {
         try {
-            return await this.sharp(originalBuffer)[type](extOptions).resize(size).toBuffer();
+            return stream.pipe(this.sharp()[type](extOptions).resize(size));
         } catch (err) {
             throw new ImageProcessingError(err);
         }

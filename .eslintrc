@@ -24,6 +24,7 @@
         "no-underscore-dangle": "off",
         "object-curly-newline": "off",
         "one-var": "off",
-        "one-var-declaration-per-line": "off"
+        "one-var-declaration-per-line": "off",
+        "no-use-before-define": "off"
     }   
 }

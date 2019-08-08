@@ -623,36 +623,6 @@ describe('#uploadUserAvatar', () => {
             }
         });
     });
-
-    // null buffer - call uR with default, return correct data.
-    test('Should use default avatars and return the correct data for a null buffer', async () => {
-        // Spys
-        const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementationOnce(() => ({
-            username: 'Jamie',
-            avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
-        }));
-        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
-
-        const user = await userService.uploadUserAvatar();
-
-        // Assert that the mocks were called correctly.
-        expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(1);
-        expect(updateAvatarByIdSpy).toHaveBeenCalledWith('123', appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
-
-        // Assert that getAbsoluteFileURISpy was called correctly.
-        expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar-image'], ['small', 'avatar-image'], ['large', 'avatar-image']]);
-                
-        // Assert that the user contains the correct data.
-        expect(user).toEqual({
-            username: 'Jamie',
-            avatarPaths: {
-                original: 'absolute',
-                small: 'absolute',
-                large: 'absolute'
-            }
-        });
-    });
 });
 
 describe('#deleteUserAvatar', () => {

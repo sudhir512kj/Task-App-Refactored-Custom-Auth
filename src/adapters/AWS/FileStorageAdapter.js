@@ -12,6 +12,7 @@
  * @class FileStorageAdapter
  */
 
+const stream = require('stream');
 const mime = require('mime-types');
 
 class FileStorageAdapter {
@@ -60,18 +61,18 @@ class FileStorageAdapter {
             // Performing the upload process.
             this.s3.upload({
                 Key: filename,
-                Body: content,
+                Body: content, // ReadableStream
                 ACL: fileAccess,
                 Bucket: bucket,
                 ContentType: mimeType
             }, (err, data) => {
                 if (err) return reject(err);
                 return resolve({
-                    filename: data.Key,
+                    filename,
                     contentType: mimeType,
                     content
                 });
-            });          
+            });
         });
     }
 

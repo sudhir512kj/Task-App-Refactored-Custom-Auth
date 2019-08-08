@@ -21,19 +21,19 @@ class FileStorageService {
     /**
      * @description Performs processing and uploading of images.
      *
-     * @param    {Buffer} originalAvatarBuffer The avatar image buffer from the client.
-     * @param    {String} uid                  The user's ID (UID - User ID, or UUID - Unique User ID)
+     * @param    {Buffer} stream The avatar image stream from the client.
+     * @param    {String} uid    The user's ID (UID - User ID, or UUID - Unique User ID)
      * @returns  {Object} Result information from the FileStorageAdapter.
      * @memberof fileStorageService
      */
-    async processAndUploadAvatarImage(originalAvatarBuffer, uid) {
+    async processAndUploadAvatarImage(stream, uid) {
         // Attain an array of processed images.
-        const processedImages = await this.fileProcessingService.processAvatarImage(originalAvatarBuffer);
+        const processedImages = await this.fileProcessingService.processAvatarImage(stream);
 
         // Upload each image and return with the response array.
-        return Promise.all(processedImages.map(({ buffer, type, ext }) => this.fileStorageAdapter
+        return Promise.all(processedImages.map(({ content, type, ext }) => this.fileStorageAdapter
             .uploadFile({
-                content: buffer,
+                content,
                 filename: `users/${uid}/profile/avatar/avatar_${type}.${ext}`,
                 filePurpose: this.fileStorageAdapter.FilePurpose.AvatarImage,
                 fileAccess: this.fileStorageAdapter.FileAccess.Public

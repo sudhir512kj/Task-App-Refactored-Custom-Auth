@@ -869,53 +869,6 @@ describe('User Avatar', () => {
         });
     });
 
-    test('Should use default anonymous avatar if no image is provided.', async () => {
-        // Assert HTTP Response Status 201 Created.
-        const response = await agent
-            .post(ROUTE)
-            .set('Authorization', `Bearer ${userOne.userOneBody.tokens[0].token}`)
-            .expect(201);
-
-        // Assert that the AWS Spy for upload was never called.
-        expect(spys.upload).toHaveBeenCalledTimes(0);
-
-        // Attempt to find the user in the database.
-        const user = await User.findById(userOne.userOneBody._id);
-
-        // Remove timestamp and version fields from user object.
-        const cleanUser = cleanDatabaseResultObject(user.toJSON());
-
-        // The expected result.
-        const expected = {
-            ...getDefaultProperties(),
-            ...userOne.userOneBody,
-            _id: userOne.userOneBody._id.toString(),
-            tokens: [{
-                _id: expect.any(String),
-                token: userOne.userOneBody.tokens[0].token
-            }],
-            avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
-        };
-
-        // Assert that the user contains the correct data.
-        expect(cleanUser).toEqual(expected);
-
-        // Assert `user` is the only object on `response.body`.
-        expect(response.body).toEqual({ user: expect.any(Object) });
-
-        // Assert that the response body contains the correct data.
-        delete expected.password;
-        delete expected.tokens;
-        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
-            ...expected,
-            avatarPaths: {
-                original: `${ABSOLUTE_URL_PREFIX}/original`,
-                small: `${ABSOLUTE_URL_PREFIX}/small`,
-                large: `${ABSOLUTE_URL_PREFIX}/large`
-            }
-        });
-    });
-
     // TODO: POST /me/avatar 400 Bad Request
     test('Should not update avatar if bad data is supplied despite a valid Bearer Token', async () => {
         // Assert HTTP Response Status 400 Bad Request.
@@ -950,7 +903,7 @@ describe('User Avatar', () => {
 
         // Assert that the response body contains the correct data.
         expect(response.body).toEqual({
-            error: 'A field is missing or invalid, or updates are invalid, or a file is invalid! The action can not be completed with the data or request body provided.'
+            error: 'The mimetype text/plain is invalid for this upload!'
         });
     });
 

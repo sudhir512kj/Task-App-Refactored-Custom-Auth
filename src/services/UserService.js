@@ -265,38 +265,36 @@ class UserService extends EventEmitter {
 
     /*
      * Description:
-     * 1.) If no avatar buffer has been provided, set the relative paths to point to the default avatars and return the safe user.
+     * 1.) If no avatar stream has been provided, set the relative paths to point to the default avatars and return the safe user.
      * 2.) Otherwise, send the image away for processing and upload.
      * 3.) Create a temporary avatar path object and store the relative avatar paths on there (dynamically creating the key names).
      * 4.) Update the database and return the safe user.
      */
     /**
-     * @description - Attempts to handle the processing and uploading of a user's avatar. If no avatar buffer is provided (so `avatarBuffer` is null), then
+     * @description - Attempts to handle the processing and uploading of a user's avatar. If no avatar stream is provided (so `stream` is null), then
      *     the database is updated to contain relative paths to the default avatar for all images from the cloud storage solution, which is an anonymous image.
-     *     If `avatarBuffer` is non-null, then calls are made to handle processing and subsequently uploading the avatar image to the cloud storage solution.
+     *     If `stream` is non-null, then calls are made to handle processing and subsequently uploading the avatar image to the cloud storage solution.
      *     After a successful upload to cloud storage, the database is updated to contain the relative paths that point to the storage location of the Blob in
      *     storage. The safe user is then returned.
      *
-     * @param    {Buffer} avatarBuffer The buffer of the user's avatar.
+     * @param    {Readable} stream The stream of the user's avatar.
      * @returns  {Object} The safe user object.
      * @memberof UserService
      */
-    async uploadUserAvatar(avatarBuffer) {
+    async uploadUserAvatar(stream) {
         const { _id } = this.context.user;
         
-        // In the event that the user decides not to upload an avatar image.
-        if (!avatarBuffer) {
-            // Using default avatar.
-            const updatedUser = await this.userRepository
-                .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
+        // // In the event that the user decides not to upload an avatar image.
+        // if (!stream) {
+        //     // Using default avatar.
+        //     const updatedUser = await this.userRepository
+        //         .updateAvatarById(_id, this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths());
             
-            return this._transformUser(updatedUser);
-        }
-
-        /* An avatar image has been provided if we make it to here. */
+        //     return this._transformUser(updatedUser);
+        // }
 
         // Upload and process the avatar image.
-        const result = await this.fileStorageService.processAndUploadAvatarImage(avatarBuffer, _id);
+        const result = await this.fileStorageService.processAndUploadAvatarImage(stream, _id);
 
         // Temporary object.
         const avatarPaths = {};

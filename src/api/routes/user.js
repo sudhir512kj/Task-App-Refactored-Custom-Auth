@@ -15,10 +15,14 @@ const express = require('express');
 const { inject } = require('awilix-express');
 
 // File upload
-const upload = require('./../../config/multer/multer');
+const parseFile = require('./../../config/busboy/busboy');
 
 // Middleware
 const { stripBearerToken, verifyAuth } = require('./../middleware/index');
+
+// Custom Exceptions
+const { ValidationError } = require('./../../custom-exceptions/index');
+const fs = require('fs');
  
 // Router 
 const router = new express.Router();
@@ -103,9 +107,14 @@ router.delete('/me', stripBearerToken, verifyAuth, inject(({ userService }) => a
  * 1.) Call the UserService to upload an avatar buffer. If there is no buffer available, pass `null` into the service.
  * 2.) Respond with the upload result from the cloud storage solution and HTTP Response Status 201 Created.
  */
-router.post('/me/avatar', stripBearerToken, verifyAuth, upload.single('avatar'), inject(({ userService }) => async (req, res) => {
+router.post('/me/avatar', stripBearerToken, verifyAuth, inject(({ userService }) => async (req, res) => {
+    const { file, filename } = await parseFile(req);
+
+    // TODO: Check on this.
+    if (file.truncated === true) return res.status(413).send();
+
     // Perform avatar upload, if there is no buffer, provide `null` to the UserService.
-    const user = await userService.uploadUserAvatar((req.file && req.file.buffer) || null);
+    const user = await userService.uploadUserAvatar(file || null);
     return res.status(201).send({ user });
 }));
 
