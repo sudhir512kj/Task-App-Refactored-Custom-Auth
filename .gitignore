@@ -2,5 +2,4 @@ node_modules
 .vscode/
 /config
 /tmp/
-coverage/
 out/
