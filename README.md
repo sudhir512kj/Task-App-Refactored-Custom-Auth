@@ -3,6 +3,19 @@
 # Task App Refactored (Custom Auth)
 A Node.js API utilizing clean architectural and design patterns with a custom JWT-based authentication system.
 
+<p float="left">
+
+<a href="https://circleci.com/gh/JamieCorkhill/Task-App-Refactored-Custom-Auth">
+    <img src="https://circleci.com/gh/JamieCorkhill/Task-App-Refactored-Custom-Auth.svg?style=svg">
+</a>
+
+<img src="https://img.shields.io/circleci/build/github/JamieCorkhill/Task-App-Refactored-Custom-Auth/master">
+<img src="https://img.shields.io/github/license/JamieCorkhill/Task-App-Refactored-Custom-Auth">
+<img src="https://img.shields.io/github/languages/code-size/JamieCorkhill/Task-App-Refactored-Custom-Auth">
+<img src="https://img.shields.io/github/package-json/v/JamieCOrkhill/Task-App-Refactored-Custom-Auth">
+
+</p>
+
 ### Table of Contents
 - [Local Execution](#local-execution)
 - [Testing](#testing)
