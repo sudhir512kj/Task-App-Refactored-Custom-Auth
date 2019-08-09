@@ -958,6 +958,14 @@ describe('User Avatar', () => {
         // Assert that the response contains the correct data.
         expect(response.body).toEqual({});
 
+        // Assert that the spy was called.
+        expect(spys.deleteObject).toHaveBeenCalledTimes(3);
+        expect(spys.deleteObject.mock.calls).toEqual([ // I could write this a lot better, but it's staying like this for now. - Jamie
+            [{ Bucket: 'jamie-first-test-bucket', Key: `users/${userTwo.userTwoBody._id}/profile/avatar/avatar_original.jpg` }, expect.any(Function)],
+            [{ Bucket: 'jamie-first-test-bucket', Key: `users/${userTwo.userTwoBody._id}/profile/avatar/avatar_small.jpg` }, expect.any(Function)],
+            [{ Bucket: 'jamie-first-test-bucket', Key: `users/${userTwo.userTwoBody._id}/profile/avatar/avatar_large.jpg` }, expect.any(Function)]
+        ]);
+
         // Assert that no avatar was uploaded.
         imageData.forEach(({ nameSuffix }) => {
             fs.readFile(`${path}/avatar_${nameSuffix}.jpg`, (err, data) => {

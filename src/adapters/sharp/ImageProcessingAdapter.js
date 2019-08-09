@@ -20,7 +20,7 @@ class ImageProcessingAdapter {
     }
 
     /**
-     * @description Converts an image to a particular type with optional options, and resizes to a specified size, returning a buffer.
+     * @description Converts an image to a particular type with optional options, and resizes to a specified size, returning a stream.
      *
      * @param {*} type       The image type/extension to convert to.
      * @param {*} extOptions Options for the extension conversion.

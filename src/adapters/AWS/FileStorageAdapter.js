@@ -15,7 +15,7 @@
 const mime = require('mime-types');
 
 // File Enumerations
-const { FilePurpose } = require('./../../constants/file-storage');
+const { FilePurpose, FileAccess } = require('./../../constants/file-storage');
 
 class FileStorageAdapter {
     constructor({ aws, appConfig }) {
@@ -64,6 +64,12 @@ class FileStorageAdapter {
             // bucket is undefined if the provided type could not be matched.
             if (!bucket) return reject(new Error(`The purpose ${filePurpose} is not recognized as a valid file purpose!`));
 
+            // File content (a stream) is required.
+            if (!content) return reject(new Error('File content is required!'));
+
+            // Determine if the provided file accessor is valid.
+            if (!Object.keys(FileAccess).some(objKey => FileAccess[objKey] === fileAccess)) return reject(new Error(`${fileAccess} is not a valid file accessor!`));
+
             // Performing the upload process.
             this.s3.upload({
                 Key: filename,
@@ -98,7 +104,7 @@ class FileStorageAdapter {
             if (!bucket) return reject(new Error(`The purpose ${filePurpose} is not recognized as a valid file purpose!`));
 
             this.s3.deleteObject({
-                bucket,
+                Bucket: bucket,
                 Key: filename
             }, (err, data) => {
                 if (err) return reject(err);
@@ -144,16 +150,16 @@ class FileStorageAdapter {
         return `http://${bucket}.${this.partialFileURIPostfix}/${filename}`;
     }
 
-    /**
-     * @description Returns the relative file URI based on it's absolute URI.
-     *
-     * @param   {String} absoluteURI The absolute URI (filename within URL).
-     * @returns {String} The filename.
-     * @memberof FileStorageAdapter
-     */
-    getFilename(absoluteURI) {
-        return absoluteURI.replace(absoluteURI.substring(0, absoluteURI.lastIndexOf(this.partialFileURIPostfix) + this.partialFileURIPostfix.length), '');
-    }
+    // /**
+    //  * @description Returns the relative file URI based on it's absolute URI.
+    //  *
+    //  * @param   {String} absoluteURI The absolute URI (filename within URL).
+    //  * @returns {String} The filename.
+    //  * @memberof FileStorageAdapter
+    //  */
+    // getFilename(absoluteURI) {
+    //     return absoluteURI.replace(absoluteURI.substring(0, absoluteURI.lastIndexOf(this.partialFileURIPostfix) + this.partialFileURIPostfix.length), '');
+    // }
 }
 
 module.exports = FileStorageAdapter;

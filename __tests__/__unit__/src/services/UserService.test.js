@@ -682,7 +682,6 @@ describe('#deleteUserAvatar', () => {
     test('Should not call any mock functions if the user avatar paths are default', async () => {
         // Spys
         const deleteFileSpy = jest.spyOn(fileStorageAdapter, 'deleteFile').mockImplementation();
-        const getFilenameSpy = jest.spyOn(fileStorageAdapter, 'getFilename').mockImplementation(() => 'abs-filename');
         const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementation();
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
@@ -696,7 +695,6 @@ describe('#deleteUserAvatar', () => {
 
         // Assert that none of the mocks were called.
         expect(deleteFileSpy).toHaveBeenCalledTimes(0);
-        expect(getFilenameSpy).toHaveBeenCalledTimes(0);
         expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(0);
 
         // Assert that the user contains the correct data.
@@ -713,7 +711,6 @@ describe('#deleteUserAvatar', () => {
     test('Should not call any mock functions if the user avatar paths are not defined (no-profile)', async () => {
         // Spys
         const deleteFileSpy = jest.spyOn(fileStorageAdapter, 'deleteFile').mockImplementation();
-        const getFilenameSpy = jest.spyOn(fileStorageAdapter, 'getFilename').mockImplementation(() => 'abs-filename');
         const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementation();
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
@@ -731,7 +728,6 @@ describe('#deleteUserAvatar', () => {
 
         // Assert that none of the mocks were called.
         expect(deleteFileSpy).toHaveBeenCalledTimes(0);
-        expect(getFilenameSpy).toHaveBeenCalledTimes(0);
         expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(0);
 
         // Assert that the user contains the correct data.
