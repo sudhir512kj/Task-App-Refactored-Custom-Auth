@@ -195,14 +195,27 @@ class UserService extends EventEmitter {
      * @returns {Object} The safe user object if discovered.
      * @memberof UserService
      */
-    async retrieveUserByQuery(query) {
+    async retrieveUserByQuery(query, dontTransformURLs = false) {
         // Attempt to find the user by a query.
         const user = await this.userRepository.readByQuery(query);
 
         // Throw a ResourceNotFoundError if that user does not exist.
         if (!user) throw new ResourceNotFoundError();
 
+        // In some cases, we may not want full absolute avatar URIs.
+        if (dontTransformURLs) return UserService._stripSensitiveData(user);
+
         return this._transformUser(user);
+    }
+
+    /**
+     * @description
+     *
+     * @returns
+     * @memberof UserService
+     */
+    retrieveSignedInUser() {
+        return this._transformUser(this.context.user);
     }
 
     /* 
@@ -230,7 +243,7 @@ class UserService extends EventEmitter {
         const updateKeys = Object.keys(requestedUpdates);
 
         // Abort if no updates have been provided.
-        if (updateKeys.length === 0) return this.context.user;
+        if (updateKeys.length === 0) return this._transformUser(this.context.user);
         
         // Verify that the requested updates are valid.
         const allowedUpdates = ['name', 'email', 'password', 'age'];
@@ -318,7 +331,7 @@ class UserService extends EventEmitter {
      * @returns  {Object} The safe user object.
      * @memberof UserService
      */
-    async deleteUserAvatar() {
+    async deleteUserAvatar() { 
         const { user, user: { _id, avatarPaths } } = this.context;
         const defaultAvatarPaths = this.appConfig.cloudStorage.avatars.getDefaultAvatarPaths();
 
@@ -329,10 +342,10 @@ class UserService extends EventEmitter {
 
         // Remove all avatar images for the current user from cloud storage.
         await Promise.all(Object.keys(user.avatarPaths)
-            .map(objKey => this.fileStorageAdapter.deleteFile(this.fileStorageAdapter.getFilename(avatarPaths[objKey]), FilePurpose.AvatarImage)));
+            .map(objKey => this.fileStorageAdapter.deleteFile(avatarPaths[objKey], FilePurpose.AvatarImage)));
 
         // Replace the relative path in the database with the default avatar relative paths (anonymous avatar).
-        return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths));
+        return this._transformUser(await this.userRepository.updateAvatarById(_id, defaultAvatarPaths)); 
     }
 
     /*
@@ -397,12 +410,7 @@ class UserService extends EventEmitter {
         const strippedUser = UserService._stripSensitiveData(user);
         return {
             ...strippedUser,
-            // If the avatar paths are not the database default, then map them, otherwise, leave them.
-            avatarPaths: strippedUser.avatarPaths.original !== 'no-profile' ? (
-                this._mapRelativeAvatarPathsToAbsoluteAvatarURIs(strippedUser.avatarPaths)
-            ) : (
-                strippedUser.avatarPaths
-            )
+            avatarPaths: this._mapRelativeAvatarPathsToAbsoluteAvatarURIs(strippedUser.avatarPaths)
         };
     }
 

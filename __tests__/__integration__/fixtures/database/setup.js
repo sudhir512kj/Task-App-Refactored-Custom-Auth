@@ -39,7 +39,8 @@ const userOneBody = {
     password: passwordHashed,
     tokens: [{
         token: jwt.sign({ _id: userOneID }, process.env.JWT_SECRET)
-    }]
+    }],
+    avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
 };
 
 // User Two

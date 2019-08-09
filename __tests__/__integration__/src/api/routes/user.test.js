@@ -159,7 +159,7 @@ describe('User Sign Up', () => {
         password: 'Turing-Completeness',
     };
 
-    test('Should sign up a user correctly', async () => {
+    test('Should sign up a user correctly (mocked password hashing)', async () => {
         // Assert HTTP Response Status 201 Created.
         const response = await localAgent // localAgent for access to the container with mocked dependencies.
             .post(ROUTE)
@@ -210,7 +210,7 @@ describe('User Sign Up', () => {
             .send({
                 user: {
                     ...userBody,
-                    age: 'age'
+                    age: 'age' // should be an int.
                 }
             })
             .expect(400);
@@ -292,13 +292,13 @@ describe('User Login', () => {
         // Remove the timestamp and version from the user object.
         const cleanUser = cleanDatabaseResultObject(user.toJSON());
 
-        // The expected result object.
+        // The s result object.
         const expectedUser = {
             ...getDefaultProperties(),
             ...userOne.userOneBody,
             _id: userOne.userOneBody._id.toString(),
             password: userOne.passwordHashed,
-            tokens: expect.any(Array)
+            tokens: expect.any(Array),
         };
 
         // Assert that the user contains the correct data.
@@ -310,17 +310,24 @@ describe('User Login', () => {
         cleanUser.tokens.forEach(({ token }) => expect(jwt.verify(token, process.env.JWT_SECRET)).toMatchObject({ _id: cleanUser._id.toString() }));
 
         // Assert that the response contains the correct data.
-        // It's safe mutate the expectedUser object here.
+        // It's safe to mutate the expectedUser object here.
         delete expectedUser.password;
         delete expectedUser.tokens;
         expect(response.body).toEqual({
             user: expect.any(Object),
             token: cleanUser.tokens[1].token
         });
-        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...expectedUser,
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.original}`,
+                small: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.small}`,
+                large: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.large}`
+            }
+        });
     });
 
-    test('Avatar paths should be formatted for a user that logs in correctly and does have an uploaded avatar', async () => {
+    test('Should login an existing user and avatar paths should be formatted correctly if user does have an uploaded avatar (non-default)', async () => {
          // Assert HTTP Response Status 200 OK.
          const response = await agent
          .post(ROUTE)
@@ -501,6 +508,11 @@ describe('Read User Profile', () => {
                 .filter(key => key !== 'tokens' && key !== 'password')
                 .reduce((obj, key) => ({ ...obj, [key]: userOne.userOneBody[key] }), {}),
             _id: userOne.userOneBody._id.toString(),
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/${userOne.userOneBody.avatarPaths.original}`,
+                small: `${ABSOLUTE_URL_PREFIX}/${userOne.userOneBody.avatarPaths.small}`,
+                large: `${ABSOLUTE_URL_PREFIX}/${userOne.userOneBody.avatarPaths.large}`,
+            }
         });
     });
 
@@ -603,7 +615,14 @@ describe('Update User Profile', () => {
         delete expectedUser.tokens;
         delete expectedUser.password;
         expect(response.body).toEqual({ user: expect.any(Object) });
-        expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+        expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+            ...expectedUser, 
+            avatarPaths: {
+                original: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.original}`,
+                small: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.small}`,
+                large: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.large}`,
+            }
+        });
     });
 
     test('Avatar paths should be formatted for a user with a valid Bearer Token that does have an uploaded avatar if no updates are provided', async () => {
@@ -716,7 +735,14 @@ describe('Update User Profile', () => {
             delete expectedUser.tokens;
             delete expectedUser.password;
             expect(response.body).toEqual({ user: expect.any(Object) });
-            expect(cleanDatabaseResultObject(response.body.user)).toEqual(expectedUser);
+            expect(cleanDatabaseResultObject(response.body.user)).toEqual({
+                ...expectedUser,
+                avatarPaths: {
+                    original: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.original}`,
+                    small: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.small}`,
+                    large: `${ABSOLUTE_URL_PREFIX}/${expectedUser.avatarPaths.large}`,
+                }
+            });
     });
 
     test('Should throw a ValidationError if a user with a valid Bearer Token attempts to update invalid fields', async () => {
@@ -934,7 +960,7 @@ describe('User Avatar', () => {
 
         // Assert that no avatar was uploaded.
         imageData.forEach(({ nameSuffix }) => {
-            fs.readFile(`${path}/avatar_${nameSuffix}`, (err, data) => {
+            fs.readFile(`${path}/avatar_${nameSuffix}.jpg`, (err, data) => {
                 expect(err).not.toBe(undefined);
                 if (nameSuffix === imageData[imageData.length - 1].nameSuffix) done();
             });

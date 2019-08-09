@@ -37,15 +37,29 @@ const {
     AuthenticationError
 } = require('./../../../../src/custom-exceptions/index');
 
+// Enumerations
+const { FilePurpose } = require('./../../../../src/constants/file-storage');
+
+const context = {
+    user: { 
+        _id: '123',
+        avatarPaths: {
+            original: 'path/to/original.jpg',
+            small: 'path/to/small.jpg',
+            large: 'path/to/large.jpg'
+        }
+    } 
+};
+
 // System Under Test
-const userService = new UserService({
+const userServiceFactory = (contextOverride = {}) => new UserService({
     userRepository,
     authenticationService,
     passwordService,
     fileStorageService,
     fileStorageAdapter,
     appConfig,
-    context: { user: { _id: '123' } }
+    context: { ...context, ...contextOverride }
 });
 
 // Factory to dynamically created named errors.
@@ -70,20 +84,17 @@ describe('#signUpNewUser', () => {
             username: 'Jamie',
         }));
         const generateAuthTokenSpy = jest.spyOn(authenticationService, 'generateAuthToken').mockImplementationOnce(() => 'token');
-        const updateTokensByIdSpy = jest.spyOn(userRepository, 'updateTokensById').mockImplementationOnce(() => ({ 
+        const updateTokensByIdSpy = jest.spyOn(userRepository, 'updateTokensById').mockImplementationOnce(() => Promise.resolve({ 
             _id: '314',
             username: 'Jamie', 
-            avatarPaths: {
-                original: 'no-profile',
-                small: 'no-profile',
-                large: 'no-profile',
-            },
+            avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths(),
             tokens: [{
                 _id: '0',
                 token: 'token'
             }],
             password: 'hashed'
         }));
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         const userData = {
             username: 'Grant Thompson - The King of Random', // RIP
@@ -92,7 +103,7 @@ describe('#signUpNewUser', () => {
         };
 
         // userService.signUpNewUser expects a userData object. This is a minified version.
-        const user = await userService.signUpNewUser(userData);
+        const result = await userServiceFactory().signUpNewUser(userData);
 
         // Assert that the password was hashed and the user was created with the expected data.
         expect(hashSpy).toHaveBeenCalledTimes(1);
@@ -111,14 +122,14 @@ describe('#signUpNewUser', () => {
         expect(updateTokensByIdSpy).toHaveBeenCalledWith('314', 'token');
 
         // Assert that the user contains the correct data.
-        expect(user).toEqual({
+        expect(result).toEqual({
             user: {
                 _id: '314',
                 username: 'Jamie',
                 avatarPaths: {
-                    original: 'no-profile',
-                    small: 'no-profile',
-                    large: 'no-profile'
+                    original: 'absolute',
+                    small: 'absolute',
+                    large: 'absolute'
                 }
             },
             token: 'token'
@@ -126,28 +137,28 @@ describe('#signUpNewUser', () => {
     });
 
     test('Should throw a ValidationError if no user data is provided', async () => {
-        await expect(userService.signUpNewUser()).rejects.toEqual(new ValidationError());
+        await expect(userServiceFactory().signUpNewUser()).rejects.toEqual(new ValidationError());
     });
 
     test('Should throw a ValidationError if no user password is provided', async () => {
-        await expect(userService.signUpNewUser({})).rejects.toEqual(new ValidationError());
+        await expect(userServiceFactory().signUpNewUser({})).rejects.toEqual(new ValidationError());
     });
 
     test('Should throw a ValidationError with a message if an email exists', async () => {
         jest.spyOn(passwordService, 'hash').mockImplementationOnce(() => 'hashed');
         jest.spyOn(userRepository, 'create').mockImplementationOnce(() => Promise.reject(errorFactory(undefined, 11000)));
-        await expect(userService.signUpNewUser({ password: 'data' })).rejects.toEqual(new ValidationError(null, 'The provided email address is already in use.'));
+        await expect(userServiceFactory().signUpNewUser({ password: 'data' })).rejects.toEqual(new ValidationError(null, 'The provided email address is already in use.'));
     });
 
     test('Should throw a generic catch-all error if an unexpected error occurs with a name', async () => {
         jest.spyOn(passwordService, 'hash').mockImplementationOnce(() => { throw new Error('Mocked Failure'); });
-        await expect(userService.signUpNewUser({ password: 'data' })).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().signUpNewUser({ password: 'data' })).rejects.toEqual(new Error('Mocked Failure'));
     });
 
     test('Should throw a generic catch-all error if an unexpected error occurs without a name', async () => {
         // eslint-disable-next-line prefer-promise-reject-errors
         jest.spyOn(passwordService, 'hash').mockImplementationOnce(() => Promise.reject('reject'));
-        await expect(userService.signUpNewUser({ password: 'data' })).rejects.toEqual('reject');
+        await expect(userServiceFactory().signUpNewUser({ password: 'data' })).rejects.toEqual('reject');
     });
 });
 
@@ -174,7 +185,7 @@ describe('#loginUser', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userRepository.loginUser expects an email and password.
-        const user = await userService.loginUser('email', 'password');
+        const user = await userServiceFactory().loginUser('email', 'password');
 
         // Assert that the query and password comparison functions were called correctly.
         expect(readByQuerySpy).toHaveBeenCalledTimes(1);
@@ -223,7 +234,7 @@ describe('#loginUser', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userRepository.loginUser expects an email and password.
-        const user = await userService.loginUser('email', 'password');
+        const user = await userServiceFactory().loginUser('email', 'password');
 
         // Assert that the query and password comparison functions were called correctly.
         expect(readByQuerySpy).toHaveBeenCalledTimes(1);
@@ -257,25 +268,25 @@ describe('#loginUser', () => {
 
     // Validation Error - no email.
     test('Should throw a ValidationError if no email is provided', async () => {
-        await expect(userService.loginUser(undefined, 'password')).rejects.toEqual(new ValidationError());
+        await expect(userServiceFactory().loginUser(undefined, 'password')).rejects.toEqual(new ValidationError());
     });
 
     // Validation Error - no password.
     test('Should throw a ValidationError if no password is provided', async () => {
-        await expect(userService.loginUser('email', undefined)).rejects.toEqual(new ValidationError());
+        await expect(userServiceFactory().loginUser('email', undefined)).rejects.toEqual(new ValidationError());
     });
 
     // Authentication Error - null user
     test('Should throw an AuthenticationError if no user is found by the provided email', async () => {
         jest.spyOn(userRepository, 'readByQuery').mockImplementation(() => Promise.resolve(null));
-        await expect(userService.loginUser('an email', 'a password')).rejects.toEqual(new AuthenticationError());
+        await expect(userServiceFactory().loginUser('an email', 'a password')).rejects.toEqual(new AuthenticationError());
     });
 
     // Authentication Error - password comparison.
     test('Should throw an AuthenticationError if the password does not match the hash on file', async () => {
         jest.spyOn(userRepository, 'readByQuery').mockImplementation(() => Promise.resolve({ password: 'hashed-db-value' }));
         jest.spyOn(passwordService, 'compare').mockImplementationOnce(() => Promise.resolve(false));
-        await expect(userService.loginUser('an email', 'a password')).rejects.toEqual(new AuthenticationError());
+        await expect(userServiceFactory().loginUser('an email', 'a password')).rejects.toEqual(new AuthenticationError());
     }); 
 });
 
@@ -293,7 +304,7 @@ describe('#logoutUser', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.logoutUser('token');
+        const user = await userServiceFactory().logoutUser('token');
 
         // Assert that the mocks were called correctly.
         expect(removeTokenByIdSpy).toHaveBeenCalledTimes(1);
@@ -323,7 +334,7 @@ describe('#logoutUser', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.logoutUser('token');
+        const user = await userServiceFactory().logoutUser('token');
 
         // Assert that the mocks were called correctly.
         expect(removeTokenByIdSpy).toHaveBeenCalledTimes(1);
@@ -346,7 +357,7 @@ describe('#logoutUser', () => {
 
     test('Should re-throw errors thrown by the dependencies', async () => {
         jest.spyOn(userRepository, 'removeTokenById').mockImplementationOnce(() => Promise.reject(new Error('Mocked Failure')));
-        await expect(userService.logoutUser('token')).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().logoutUser('token')).rejects.toEqual(new Error('Mocked Failure'));
     });
 });
 
@@ -364,7 +375,7 @@ describe('#logoutUserAll', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.logoutUserAll();
+        const user = await userServiceFactory().logoutUserAll();
 
         // Assert that the mocks were called correctly.
         expect(removeAllTokensByIdSpy).toHaveBeenCalledTimes(1);
@@ -394,7 +405,7 @@ describe('#logoutUserAll', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.logoutUserAll('token');
+        const user = await userServiceFactory().logoutUserAll('token');
 
         // Assert that the mocks were called correctly.
         expect(removeAllTokensByIdSpy).toHaveBeenCalledTimes(1);
@@ -417,7 +428,7 @@ describe('#logoutUserAll', () => {
 
     test('Should re-throw errors thrown by the dependencies', async () => {
         jest.spyOn(userRepository, 'removeAllTokensById').mockImplementationOnce(() => Promise.reject(new Error('Mocked Failure')));
-        await expect(userService.logoutUserAll('token')).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().logoutUserAll('token')).rejects.toEqual(new Error('Mocked Failure'));
     });
 });
 
@@ -436,7 +447,7 @@ describe('#retrieveUserByQuery', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.retrieveUserByQuery({ email: 'email' });
+        const user = await userServiceFactory().retrieveUserByQuery({ email: 'email' });
 
         // Assert that the mocks were called correctly.
         expect(readByQuerySpy).toHaveBeenCalledTimes(1);
@@ -467,7 +478,7 @@ describe('#retrieveUserByQuery', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.logoutUser expects a token.
-        const user = await userService.retrieveUserByQuery({ email: 'email' });
+        const user = await userServiceFactory().retrieveUserByQuery({ email: 'email' });
 
         // Assert that the mocks were called correctly.
         expect(readByQuerySpy).toHaveBeenCalledTimes(1);
@@ -491,13 +502,13 @@ describe('#retrieveUserByQuery', () => {
     // Throw for null error.
     test('Should throw a ResourceNotFoundError for a user who is null', async () => {
         jest.spyOn(userRepository, 'readByQuery').mockImplementationOnce(() => Promise.resolve(null));
-        await expect(userService.retrieveUserByQuery('query')).rejects.toEqual(new ResourceNotFoundError());
+        await expect(userServiceFactory().retrieveUserByQuery('query')).rejects.toEqual(new ResourceNotFoundError());
     });
 
     // Re-throw errors.
     test('Should re-throw errors thrown by the UserRepository', async () => {
         jest.spyOn(userRepository, 'readByQuery').mockImplementationOnce(() => Promise.reject(new Error('Mocked Failure')));
-        await expect(userService.retrieveUserByQuery('query')).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().retrieveUserByQuery('query')).rejects.toEqual(new Error('Mocked Failure'));
     });
 });
 
@@ -519,7 +530,7 @@ describe('#updateUser', () => {
         };
 
         // userService.updateUser expects a requested updates object.
-        const user = await userService.updateUser(requestedUpdates);
+        const user = await userServiceFactory().updateUser(requestedUpdates);
 
         // Assert that the mock functions were called correctly.
         expect(hashSpy).toHaveBeenCalledTimes(1);
@@ -529,7 +540,7 @@ describe('#updateUser', () => {
 
         // Assert that getAbsoluteFileURISpy was called correctly.
         expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-      expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar-image'], ['small', 'avatar-image'], ['large', 'avatar-image']]);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['original', 'avatar-image'], ['small', 'avatar-image'], ['large', 'avatar-image']]);
 
         // Assert that the return result contains the correct data.
         expect(user).toEqual({
@@ -543,16 +554,24 @@ describe('#updateUser', () => {
     });
 
     test('Should return the same user if no updates are provided', async () => {
-        await expect(await userService.updateUser()).toEqual({ _id: '123' });
+        jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
+        await expect(await userServiceFactory().updateUser()).toEqual({
+            ...context.user,
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'
+            }
+        });
     });
 
     test('Should throw a ValidationError if invalid updates are provided', async () => {
-        await expect(userService.updateUser({ _id: '456' })).rejects.toEqual(new ValidationError());
+        await expect(userServiceFactory().updateUser({ _id: '456' })).rejects.toEqual(new ValidationError());
     });
 
     test('Should re-throw errors thrown by the dependencies', async () => {
         jest.spyOn(userRepository, 'updateById').mockImplementationOnce(() => Promise.reject(new Error('Mocked Failure')));
-        await expect(userService.updateUser({ email: 'email' })).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().updateUser({ email: 'email' })).rejects.toEqual(new Error('Mocked Failure'));
     });
 });
 
@@ -561,7 +580,7 @@ describe('#deleteUser', () => {
         // Spys
         const deleteByIdSpy = jest.spyOn(userRepository, 'deleteById').mockImplementation(() => Promise.resolve('user'));
 
-        const user = await userService.deleteUser();
+        const user = await userServiceFactory().deleteUser();
 
         // Assert that the mock function was called correctly.
         expect(deleteByIdSpy).toHaveBeenCalledTimes(1);
@@ -573,7 +592,7 @@ describe('#deleteUser', () => {
 
     test('Should re-throw errors thrown by dependencies', async () => {
         jest.spyOn(userRepository, 'deleteById').mockImplementation(() => Promise.reject(new Error('Mocked Failure')));
-        await expect(userService.deleteUser()).rejects.toEqual(new Error('Mocked Failure'));
+        await expect(userServiceFactory().deleteUser()).rejects.toEqual(new Error('Mocked Failure'));
     });
 });
 
@@ -597,7 +616,7 @@ describe('#uploadUserAvatar', () => {
         const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
         // userService.uploadUserAvatar expects a buffer.
-        const user = await userService.uploadUserAvatar('stream');
+        const user = await userServiceFactory().uploadUserAvatar('stream');
 
         // Assert that the mocks were called correctly.
         expect(processAndUploadAvatarImageSpy).toHaveBeenCalledTimes(1);
@@ -609,9 +628,9 @@ describe('#uploadUserAvatar', () => {
             large: 'path/to/avatar_large.jpg'
         });
 
-                // Assert that getAbsoluteFileURISpy was called correctly.
-                expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
-                expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar-image'], ['path/to/img2', 'avatar-image'], ['path/to/img3', 'avatar-image']]);
+        // Assert that getAbsoluteFileURISpy was called correctly.
+        expect(getAbsoluteFileURISpy).toHaveBeenCalledTimes(3);
+        expect(getAbsoluteFileURISpy.mock.calls).toEqual([['path/to/img1', 'avatar-image'], ['path/to/img2', 'avatar-image'], ['path/to/img3', 'avatar-image']]);
 
         // Assert that the user contains the correct data.
         expect(user).toEqual({
@@ -623,25 +642,207 @@ describe('#uploadUserAvatar', () => {
             }
         });
     });
+
+    test('Should re-throw errors thrown by any of the dependencies', async () => {
+        jest.spyOn(fileStorageService, 'processAndUploadAvatarImage').mockImplementation(() => Promise.reject(new Error('Mocked Failure')));
+        await expect(userServiceFactory().uploadUserAvatar('stream')).rejects.toEqual(new Error('Mocked Failure'));
+    });
 });
 
 describe('#deleteUserAvatar', () => {
-    test('Should call the correct mock functions to delete an avatar from the storage and the database', async () => {
+    test('Should call the correct mock functions to delete an avatar from the storage solution and the database', async () => {
         // Spys
-        
+        const deleteFileSpy = jest.spyOn(fileStorageAdapter, 'deleteFile').mockImplementation();
+        const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementation(() => Promise.resolve({
+                username: 'updated-user',
+                avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
+        }));
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
+
+        const { original, small, large } = context.user.avatarPaths;
+        const filePurpose = FilePurpose.AvatarImage;
+
+        const user = await userServiceFactory().deleteUserAvatar();
+
+        // Assert that the spys were called correctly.
+        expect(deleteFileSpy).toHaveBeenCalledTimes(3);
+        expect(deleteFileSpy.mock.calls).toEqual([[original, filePurpose], [small, filePurpose], [large, filePurpose]]);
+
+        // Assert that the user contains the correct data.
+        expect(user).toEqual({
+            username: 'updated-user',
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'
+            }
+        });
+    }); 
+
+    test('Should not call any mock functions if the user avatar paths are default', async () => {
+        // Spys
+        const deleteFileSpy = jest.spyOn(fileStorageAdapter, 'deleteFile').mockImplementation();
+        const getFilenameSpy = jest.spyOn(fileStorageAdapter, 'getFilename').mockImplementation(() => 'abs-filename');
+        const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementation();
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
+
+        const user = await userServiceFactory({ 
+            ...context, 
+            user: {
+                ...context.user,
+                avatarPaths: appConfig.cloudStorage.avatars.getDefaultAvatarPaths()
+            }
+        }).deleteUserAvatar();
+
+        // Assert that none of the mocks were called.
+        expect(deleteFileSpy).toHaveBeenCalledTimes(0);
+        expect(getFilenameSpy).toHaveBeenCalledTimes(0);
+        expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(0);
+
+        // Assert that the user contains the correct data.
+        expect(user).toEqual({
+            ...context.user,
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'
+            }
+        });
+    });
+
+    test('Should not call any mock functions if the user avatar paths are not defined (no-profile)', async () => {
+        // Spys
+        const deleteFileSpy = jest.spyOn(fileStorageAdapter, 'deleteFile').mockImplementation();
+        const getFilenameSpy = jest.spyOn(fileStorageAdapter, 'getFilename').mockImplementation(() => 'abs-filename');
+        const updateAvatarByIdSpy = jest.spyOn(userRepository, 'updateAvatarById').mockImplementation();
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
+
+        const user = await userServiceFactory({ 
+            ...context, 
+            user: {
+                ...context.user,
+                avatarPaths: {
+                    original: 'no-profile',
+                    small: 'no-profile',
+                    large: 'no-profile'
+                }
+            }
+        }).deleteUserAvatar();
+
+        // Assert that none of the mocks were called.
+        expect(deleteFileSpy).toHaveBeenCalledTimes(0);
+        expect(getFilenameSpy).toHaveBeenCalledTimes(0);
+        expect(updateAvatarByIdSpy).toHaveBeenCalledTimes(0);
+
+        // Assert that the user contains the correct data.
+        expect(user).toEqual({
+            ...context.user,
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'
+            }
+        });
     });
 });
 
 describe('#retrieveUserAvatarURLById', () => {
+     test('Should return correctly formatted URLs for a user', async () => {
+        const readByIdSpy = jest.spyOn(userRepository, 'readById').mockImplementation(() => Promise.resolve({
+            username: 'user',
+            avatarPaths: {
+                original: 'path/to/img',
+                small: 'path/to/img',
+                large: 'path/to/img'
+            }
+        }));
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
+        const urls = await userServiceFactory().retrieveUserAvatarURLById('an id');
+
+        // Assert that the mocks were called correctly.
+        expect(readByIdSpy).toHaveBeenCalledTimes(1);
+        expect(readByIdSpy).toHaveBeenCalledWith('an id');
+
+        // Assert that the avatar paths are correct.
+        expect(urls).toEqual({
+            original: 'absolute',
+            small: 'absolute',
+            large: 'absolute'
+        });
+    });
+
+    test('Should throw a ResourceNotFoundError for a null user', async () => {
+        jest.spyOn(userRepository, 'readById').mockImplementation(null);
+        await expect(userServiceFactory().retrieveUserAvatarURLById('123')).rejects.toEqual(new ResourceNotFoundError());
+    });
 });
 
 describe('#_stripSensitiveData', () => {
+    test('Should remove the correct fields from a user object', () => {
+        const originalUser = {
+            username: 'jamie',
+            _id: '123',
+            password: 'hashed',
+            tokens: []
+        };
 
+        const cleanUser = UserService._stripSensitiveData(originalUser);
+
+        delete originalUser.password;
+        delete originalUser.tokens;
+        expect(cleanUser).toEqual(originalUser);
+    });
 });
 
 describe('#_transformUser', () => {
+    test('Should map URLs correctly for non database default URLs provided', () => {
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
 
+        const transformedUser = userServiceFactory()._transformUser({
+            username: 'jamie',
+            password: 'hashed',
+            tokens: [],
+            avatarPaths: {
+                original: 'path',
+                small: 'path',
+                large: 'path'
+            }
+        });
+
+        expect(transformedUser).toEqual({
+            username: 'jamie',
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'
+            }
+        });
+    });
+
+    test('Should map to default avatar URIs if database default URIs are provided', () => {
+        const getAbsoluteFileURISpy = jest.spyOn(fileStorageAdapter, 'getAbsoluteFileURI').mockImplementation(() => 'absolute'); // Not mocked once.
+
+        const transformedUser = userServiceFactory()._transformUser({
+            username: 'jamie',
+            password: 'hashed',
+            tokens: [],
+            avatarPaths: {
+                original: 'no-profile',
+                small: 'no-profile',
+                large: 'no-profile'
+            }
+        });
+
+        expect(transformedUser).toEqual({
+            username: 'jamie',
+            avatarPaths: {
+                original: 'absolute',
+                small: 'absolute',
+                large: 'absolute'            
+            }
+        });
+    });
 });
 
 describe('#_mapRelativeAvatarPathsToAbsoluteAvatarURIs', () => {
